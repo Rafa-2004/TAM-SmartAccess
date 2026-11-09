@@ -1,0 +1,40 @@
+# Segredos
+.env
+.env.*
+!.env.example
+secrets.h
+google-services.json
+*.pem
+*.key
+
+# Python / API
+__pycache__/
+*.pyc
+venv/
+.venv/
+.vercel/
+
+# Android Studio
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+*.apk
+*.aab
+
+# Arduino
+*.hex
+*.elf
+*.bin
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Base de dados local
+*.sql.bak
+*.dump
