@@ -6,3 +6,9 @@ API REST em Python (Flask), alojada no Vercel com deploy automático a partir do
 - No Vercel, definir **Root Directory = `api`**.
 - Copiar `.env.example` para `.env` e preencher. O `.env` não vai para o GitHub.
 - As mesmas variáveis têm de ser definidas no Vercel (Settings → Environment Variables).
+
+
+
+## URL da API 
+
+- tam-smartaccess-api.vercel.app
