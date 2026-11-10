@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 secrets.h
+arduino_secrets.h
 google-services.json
 *.pem
 *.key
