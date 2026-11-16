@@ -1,5 +1,7 @@
 // SmartAccess - porta de sala de aula
-// Leitor RFID RC522 + 2 sensores HC-SR04 (entrada/saida) + servo (tranca) + LCD + WiFi + API (Python no Vercel)
+// Leitor RFID RC522 + 2 sensores HC-SR04 (entrada/saida) + LEDs verde/vermelho (estado da porta) + LCD + WiFi + API (Python no Vercel)
+// Servo removido: gastava energia a mais e fazia cair o Wi-Fi; o estado da porta fica nos LEDs (verde = aberta, vermelho = fechada).
+// Modo sem rede removido: sem ligacao a API nenhum cartao abre nem fecha a porta (a decisao e sempre da API).
 //
 // O Arduino so le os sensores e executa: quem pode abrir/fechar a sala e decidido na API.
 //   - sala fechada: um cartao valido (dentro do horario do seu perfil) abre a porta e inicia a aula
@@ -8,12 +10,12 @@
 //
 // Nada de identificacao fica no codigo: no 1.o arranque o Arduino regista-se na API pelo seu MAC,
 // recebe uma chave unica e guarda-a na EEPROM. Um administrador aprova a porta na app e a partir
-// dai a API envia a configuracao (nome da porta, cartoes que funcionam sem rede, intervalos).
+// dai a API envia a configuracao (nome da porta, intervalos).
 // O mesmo codigo serve para qualquer porta: basta montar o hardware e preencher a rede WiFi.
 #include <SPI.h>
 #include <EEPROM.h>
 #include <MFRC522.h>
-#include <Servo.h>
+// Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
 #include <LiquidCrystal_I2C.h>
 #if defined(ARDUINO_UNOR4_WIFI)
   #include <WiFiS3.h>       // UNO R4 WiFi
@@ -31,7 +33,7 @@ const int ECHO_B = 5;
 const int LED_VERDE = 6;
 const int LED_VERMELHO = 7;
 const int BUZZER = 8;
-const int PINO_SERVO = 9;
+// Servo removido (gastava energia a mais e fazia cair o Wi-Fi); pino 9 livre.
 const int RFID_SS = 10;   // SDA/SS do RC522
 const int RFID_RST = 0;   // RST do RC522
 
@@ -41,8 +43,7 @@ const int MARGEM_CM = 45;                           // ocupado = mais perto do q
 const int LEITURAS_CONFIRMAR = 2;                   // leituras seguidas para mudar de estado (filtra ruido)
 const unsigned long TEMPO_FIM_MS = 400;             // ambos livres durante isto = a pessoa ja passou
 const unsigned long TIMEOUT_PASSAGEM_MS = 5000;     // 5 s sem nenhum sensor mudar = alguem parado na porta
-const int ANGULO_TRANCADO = 0;
-const int ANGULO_DESTRANCADO = 90;
+// Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
 
 // ---------------- Tempos internos ----------------
 const unsigned long MENSAGEM_MS = 2500;             // tempo das mensagens temporarias no LCD
@@ -53,11 +54,10 @@ const unsigned long INTERVALO_REGISTO_MS = 10000;   // enquanto espera aprovacao
 // ---------------- EEPROM (256 bytes no Rev2) ----------------
 const int EE_ASSINATURA = 0;     // 'S','A' = ha dados validos
 const int EE_CHAVE = 2;          // 64 caracteres hexadecimais
-const int EE_OFFLINE = 66;       // 1 byte com o tamanho + lista "UID1,UID2,..."
-const int MAX_OFFLINE_TXT = 170;
+// Modo sem rede removido (ver topo). (lista de cartoes na EEPROM, a partir do endereco 66, ja nao existe)
 
 // ---------------- Objetos ----------------
-Servo tranca;
+// Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
 MFRC522 rfid(RFID_SS, RFID_RST);
 LiquidCrystal_I2C lcd(0x27, 16, 2);   // 0x27 = endereco por omissao na maioria dos LCD I2C
 
@@ -70,7 +70,7 @@ EstadoDispositivo estadoDispositivo = SEM_REGISTO;
 char apiKey[65] = "";             // vem da API no registo; fica na EEPROM
 String mac = "";
 String nomePorta = "SmartAccess"; // vem da API (ex.: "Sala 1.04")
-String cartoesOffline = "";       // vem da API: cartoes que abrem/fecham sem rede
+// Modo sem rede removido (ver topo).
 unsigned long intervaloComandosMs = 5000;   // vem da API
 bool configuracaoRecebida = false;
 bool online = false;
@@ -135,7 +135,6 @@ void registarLog(const char* tag, const String& mensagem);
 void bip(unsigned int frequencia, unsigned long duracao);
 void lerMemoria();
 void guardarChave(const String& chave);
-void guardarCartoesOffline(String lista);
 void apagarChave();
 bool prepararDispositivo();
 bool registarDispositivo();
@@ -183,8 +182,8 @@ void setup() {
   pinMode(BUZZER, OUTPUT);
   digitalWrite(BUZZER, LOW);
 
-  tranca.attach(PINO_SERVO);
-  tranca.write(ANGULO_TRANCADO);      // arranca sempre trancada; a API diz se havia uma aula a decorrer
+  // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
+  // Arranca sempre com a porta fechada (LED vermelho); a API diz se havia uma aula a decorrer
   digitalWrite(LED_VERMELHO, HIGH);
 
   SPI.begin();
@@ -314,7 +313,6 @@ void bip(unsigned int frequencia, unsigned long duracao) {
 // ======================================================
 void lerMemoria() {
   apiKey[0] = '\0';
-  cartoesOffline = "";
   if (EEPROM.read(EE_ASSINATURA) != 'S' || EEPROM.read(EE_ASSINATURA + 1) != 'A') {
     registarLog("SISTEMA", "Memoria vazia: primeiro arranque deste Arduino");
     return;
@@ -329,10 +327,7 @@ void lerMemoria() {
   }
   apiKey[64] = '\0';
 
-  int tamanho = EEPROM.read(EE_OFFLINE);
-  if (tamanho > MAX_OFFLINE_TXT) tamanho = 0;
-  for (int i = 0; i < tamanho; i++) cartoesOffline += (char)EEPROM.read(EE_OFFLINE + 1 + i);
-  estadoDispositivo = ATIVO;          // ate a API dizer o contrario (permite o modo sem rede logo no arranque)
+  estadoDispositivo = ATIVO;          // ate a API dizer o contrario
   registarLog("SISTEMA", "Chave do dispositivo lida da memoria");
 }
 
@@ -343,18 +338,7 @@ void guardarChave(const String& chave) {
   chave.toCharArray(apiKey, sizeof(apiKey));
 }
 
-// So escreve se mudou (a EEPROM aguenta ~100 000 escritas por byte)
-// Se a lista nao couber, guarda so os primeiros cartoes que cabem inteiros.
-void guardarCartoesOffline(String lista) {
-  if ((int)lista.length() > MAX_OFFLINE_TXT) {
-    lista = lista.substring(0, lista.lastIndexOf(',', MAX_OFFLINE_TXT));
-    registarLog("SISTEMA", "Lista de cartoes sem rede demasiado grande: so ficam os primeiros");
-  }
-  if (lista == cartoesOffline) return;
-  cartoesOffline = lista;
-  EEPROM.update(EE_OFFLINE, lista.length());
-  for (unsigned int i = 0; i < lista.length(); i++) EEPROM.update(EE_OFFLINE + 1 + i, lista[i]);
-}
+// Modo sem rede removido (ver topo). (guardarCartoesOffline apagada: a lista "cartoes_offline" da API e ignorada)
 
 void apagarChave() {
   EEPROM.update(EE_ASSINATURA, 0xFF);
@@ -409,15 +393,13 @@ bool pedirConfiguracao() {
   nomePorta = lerCampoTexto(resposta, "nome");
   long intervalo = lerCampoNumero(resposta, "intervalo_comandos_s");
   if (intervalo > 0) intervaloComandosMs = intervalo * 1000UL;
-  guardarCartoesOffline(lerCampoTexto(resposta, "cartoes_offline"));
+  // Modo sem rede removido (ver topo).
   long dentro = lerCampoNumero(resposta, "pessoas_dentro");
   if (dentro >= 0) pessoasDentro = dentro;
 
   if (primeiraVez) {
     registarLog("API", "Porta ativa: " + nomePorta);
-    int n = cartoesOffline.length() == 0 ? 0 : 1;
-    for (unsigned int i = 0; i < cartoesOffline.length(); i++) if (cartoesOffline[i] == ',') n++;
-    registarLog("API", String("Cartoes que funcionam sem rede: ") + n + " | contacto a cada " + (intervaloComandosMs / 1000) + " s");
+    registarLog("API", String("Contacto a cada ") + (intervaloComandosMs / 1000) + " s");
   }
 
   // Havia uma aula a decorrer (ex.: o Arduino reiniciou a meio): retoma-a
@@ -472,9 +454,9 @@ void tratarCartao(String uid) {
     return;
   }
 
-  // Ainda sem chave (registo falhou ou esta a decorrer): a API recusaria o pedido, usa o modo sem rede
+  // Ainda sem chave (registo falhou ou esta a decorrer): a API recusaria o pedido, o cartao e recusado
   if (apiKey[0] == '\0') {
-    registarLog("CARTAO", "Porta ainda sem registo na API - modo sem rede");
+    registarLog("CARTAO", "Porta ainda sem registo na API - cartao recusado");
     tratarSemRede(uid);
     return;
   }
@@ -488,7 +470,7 @@ void tratarCartao(String uid) {
   }
   if (estado < 0 || estado >= 500) {
     online = false;
-    registarLog("API", String("Sem ligacao (codigo ") + estado + ") - modo sem rede");
+    registarLog("API", String("Sem ligacao (codigo ") + estado + ") - cartao recusado");
     tratarSemRede(uid);
     return;
   }
@@ -530,23 +512,11 @@ void tratarCartao(String uid) {
   acessoNegado(String("Erro API ") + estado);
 }
 
-// Sem rede: so os cartoes que a API marcou como "offline" (admin/funcionario) abrem e fecham.
-// O dono de uma aula aberta tambem a pode fechar. Tudo fica guardado e e enviado quando a rede voltar.
+// Sem ligacao a API nenhum cartao abre nem fecha a porta.
+// Modo sem rede removido: sem ligacao a API nenhum cartao abre nem fecha a porta (a decisao e sempre da API).
 void tratarSemRede(const String& uid) {
-  bool cartaoOffline = cartoesOffline.length() > 0 && ("," + cartoesOffline + ",").indexOf("," + uid + ",") >= 0;
-
-  if (aulaAberta && (uid == donoUid || cartaoOffline)) {
-    registarLog("AULA", "Fechada sem rede (fica registado quando a ligacao voltar)");
-    fecharSala("Sem rede");
-    guardarPendente('F', "");
-  } else if (!aulaAberta && cartaoOffline) {
-    abrirSala(uid, "Cartao offline", "");
-    registarLog("AULA", "Aberta sem rede com um cartao autorizado offline");
-    guardarPendente('A', uid);
-  } else {
-    registarLog("CARTAO", "NEGADO: sem ligacao a API e o cartao nao esta autorizado offline");
-    acessoNegado("Sem rede");
-  }
+  registarLog("CARTAO", "NEGADO: sem ligacao a API (" + uid + ")");
+  acessoNegado("Sem rede");
 }
 
 // Inicio da aula: destranca e a porta fica aberta ate o dono (ou um admin/funcionario) a fechar
@@ -559,7 +529,7 @@ void abrirSala(const String& uid, const String& nome, const String& perfil) {
   saidasAula = 0;
   naoDetetadasAula = 0;
 
-  tranca.write(ANGULO_DESTRANCADO);
+  // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
   digitalWrite(LED_VERMELHO, LOW);
   digitalWrite(LED_VERDE, HIGH);
   bip(1000, 200);
@@ -572,7 +542,7 @@ void abrirSala(const String& uid, const String& nome, const String& perfil) {
 
 void fecharSala(const String& linha2) {
   aulaAberta = false;
-  tranca.write(ANGULO_TRANCADO);
+  // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
   digitalWrite(LED_VERDE, LOW);
   digitalWrite(LED_VERMELHO, HIGH);
   bip(800, 300);
@@ -1021,7 +991,6 @@ void mostrarInfo() {
   Serial.println(String("  Aula:         ") + (aulaAberta ? "a decorrer - " + donoNome : "nenhuma (porta trancada)"));
   Serial.println(String("  Dentro:       ") + pessoasDentro + " pessoas");
   if (aulaAberta) Serial.println(String("  Nesta aula:   ") + entradasAula + " entradas, " + saidasAula + " saidas");
-  Serial.println(String("  Sem rede:     ") + (cartoesOffline.length() ? cartoesOffline : "nenhum cartao autorizado"));
   Serial.println(String("  Por enviar:   ") + numPendentes + " eventos");
   Serial.println(F("----------------------------------------------"));
 }
