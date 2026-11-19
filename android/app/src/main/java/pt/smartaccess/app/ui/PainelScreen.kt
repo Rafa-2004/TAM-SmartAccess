@@ -47,7 +47,7 @@ fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel:
     var aConfirmar by remember { mutableStateOf<Dispositivo?>(null) }
 
     MostrarMensagens(viewModel, snackbar)
-    AtualizarPeriodicamente(5_000) { viewModel.atualizar() }
+    AtualizarPeriodicamente(3_000) { viewModel.atualizar() }
 
     ConteudoCarregado(estado, viewModel::recarregar) { dispositivos ->
         if (dispositivos.isEmpty()) {

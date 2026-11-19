@@ -18,7 +18,9 @@ import hashlib
 import os
 import re
 import secrets
+import threading
 from datetime import date, datetime, time, timedelta, timezone
+from time import monotonic
 from zoneinfo import ZoneInfo
 
 import bcrypt
@@ -33,9 +35,10 @@ JWT_SECRET = os.environ.get("JWT_SECRET", "").strip()
 FUSO = ZoneInfo(os.environ.get("FUSO_HORARIO", "Europe/Lisbon"))
 
 DURACAO_TOKEN = timedelta(hours=12)
-OFFLINE_APOS = timedelta(seconds=60)      # o Arduino contacta a API a cada ~5 s
+OFFLINE_APOS = timedelta(seconds=60)      # o Arduino contacta a API a cada ~2 s
 VALIDADE_COMANDO = timedelta(minutes=1)   # um pedido de abertura antigo ja nao abre a porta
 TENTATIVAS_PARA_ALERTA = 3
+TESTAR_LIGACAO_APOS_S = 30                # ligacao a BD parada ha mais tempo e testada antes de ser reutilizada
 
 PERFIS = ("admin", "funcionario", "docente")
 PERFIS_QUE_FECHAM_QUALQUER_AULA = ("admin", "funcionario")
@@ -68,10 +71,7 @@ class ErroApi(Exception):
 
 @app.errorhandler(ErroApi)
 def tratar_erro_api(erro: ErroApi):
-    con = g.pop("con", None)
-    if con is not None:
-        con.rollback()
-        con.close()
+    devolver_ligacao(g.pop("con", None), sucesso=False)
     return jsonify(detail=erro.mensagem), erro.estado
 
 
@@ -93,28 +93,63 @@ def erro_interno(_):
 # ======================================================
 #  BASE DE DADOS
 # ======================================================
-# Uma ligacao por pedido; no fim faz commit (ou rollback se houve erro) e fecha
+# Abrir uma ligacao nova (TCP + TLS + autenticacao) custava ~1 s em cada pedido.
+# Agora a ligacao fica aberta e e reutilizada pelos pedidos seguintes enquanto a funcao
+# do Vercel estiver ativa. Cada pedido continua a ser uma transacao: no fim faz commit
+# (ou rollback se houve erro). Uma ligacao parada ha algum tempo e testada antes de ser usada.
+_ligacao = threading.local()
+
+
 def bd():
     if "con" not in g:
         if not DATABASE_URL:
             raise ErroApi(500, "DATABASE_URL nao configurada no servidor")
-        g.con = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=8,
-                                options="-c search_path=tam")
+        con = getattr(_ligacao, "con", None)
+        if con is not None and (con.closed or con.broken):
+            con = None
+        if con is not None and monotonic() - _ligacao.usada_em > TESTAR_LIGACAO_APOS_S:
+            try:
+                con.execute("SELECT 1")
+                con.rollback()
+            except psycopg.Error:
+                fechar_sem_erros(con)
+                con = None
+        if con is None:
+            con = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=8,
+                                  options="-c search_path=tam")
+        _ligacao.con = con
+        g.con = con
     return g.con
+
+
+def fechar_sem_erros(con):
+    try:
+        con.close()
+    except Exception:
+        pass
+    if getattr(_ligacao, "con", None) is con:
+        _ligacao.con = None
+
+
+# Termina a transacao do pedido e deixa a ligacao pronta para o proximo
+def devolver_ligacao(con, sucesso: bool):
+    if con is None:
+        return
+    try:
+        if sucesso:
+            con.commit()
+        else:
+            con.rollback()
+        _ligacao.usada_em = monotonic()
+    except Exception:
+        fechar_sem_erros(con)   # ligacao estragada: o proximo pedido abre outra
+        if sucesso:
+            raise
 
 
 @app.teardown_request
 def fechar_bd(excecao):
-    con = g.pop("con", None)
-    if con is None:
-        return
-    try:
-        if excecao is None:
-            con.commit()
-        else:
-            con.rollback()
-    finally:
-        con.close()
+    devolver_ligacao(g.pop("con", None), sucesso=excecao is None)
 
 
 # ======================================================
@@ -458,7 +493,7 @@ def configuracao_dispositivo():
     ).fetchone()["pessoas_dentro"]
     return {
         "nome": dispositivo["nome"],
-        "intervalo_comandos_s": int(ler_configuracao(con, "intervalo_comandos_s", "5")),
+        "intervalo_comandos_s": int(ler_configuracao(con, "intervalo_comandos_s", "2")),
         "cartoes_offline": ",".join(c["uid"] for c in cartoes),
         "pessoas_dentro": pessoas,
         "aula": resumo_aula(aula) if aula else None,
@@ -527,7 +562,7 @@ def pedir_acesso():
     return {"acesso": "negado", "motivo": motivo, **pessoa, "aula": resumo_aula(aula) if aula else None}, 403
 
 
-# Comandos pendentes (abertura remota). Chamado a cada ~5 s, serve tambem de heartbeat.
+# Comandos pendentes (abertura remota). Chamado a cada ~2 s, serve tambem de heartbeat.
 @app.get("/api/device/commands")
 def comandos_pendentes():
     dispositivo = dispositivo_atual()

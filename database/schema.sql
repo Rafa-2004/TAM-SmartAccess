@@ -219,6 +219,6 @@ CREATE TABLE IF NOT EXISTS tam.configuracao (
 );
 
 INSERT INTO tam.configuracao (chave, valor, descricao) VALUES
-  ('intervalo_comandos_s', '5',                 'De quantos em quantos segundos o Arduino contacta a API'),
+  ('intervalo_comandos_s', '2',                'De quantos em quantos segundos o Arduino contacta a API'),
   ('perfis_offline',       'admin,funcionario', 'Perfis cujos cartoes abrem/fecham a sala quando nao ha rede')
 ON CONFLICT (chave) DO NOTHING;

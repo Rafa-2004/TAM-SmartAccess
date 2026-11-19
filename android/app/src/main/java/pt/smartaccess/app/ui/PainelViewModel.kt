@@ -25,7 +25,7 @@ class PainelViewModel(
         _estado.carregarDe { api.estado() }
     }
 
-    // Cria o comando e espera que o Arduino o execute (consulta a cada 2 s, ate 1 minuto)
+    // Cria o comando e espera que o Arduino o execute (consulta a cada 1 s, ate 1 minuto)
     fun abrirPorta(dispositivo: Dispositivo) {
         viewModelScope.launch {
             _aAbrir.value = true
@@ -35,8 +35,8 @@ class PainelViewModel(
 
                 var estadoComando = "pendente"
                 var tentativas = 0
-                while (estadoComando == "pendente" && tentativas < 30) {
-                    delay(2000)
+                while (estadoComando == "pendente" && tentativas < 60) {
+                    delay(1000)
                     estadoComando = api.comando(pedido.comandoId).estado
                     tentativas++
                 }

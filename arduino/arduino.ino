@@ -71,7 +71,7 @@ char apiKey[65] = "";             // vem da API no registo; fica na EEPROM
 String mac = "";
 String nomePorta = "SmartAccess"; // vem da API (ex.: "Sala 1.04")
 // Modo sem rede removido (ver topo).
-unsigned long intervaloComandosMs = 5000;   // vem da API
+unsigned long intervaloComandosMs = 2000;   // vem da API
 bool configuracaoRecebida = false;
 bool online = false;
 int ultimoEstadoHttp = 0;         // codigo do ultimo pedido a API (negativo = erro de rede)
