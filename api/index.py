@@ -805,6 +805,17 @@ def alterar_cartao(cartao_id: int):
     return obter_cartao(con, cartao_id)
 
 
+# Apaga o cartao (e as suas permissoes). O historico de acessos guarda so o UID, por isso nao se perde.
+# Se o cartao voltar a ser lido numa porta, aparece de novo como pendente.
+@app.delete("/api/cards/<int:cartao_id>")
+def apagar_cartao(cartao_id: int):
+    exigir_admin()
+    con = bd()
+    obter_cartao(con, cartao_id)
+    con.execute("CALL sp_apagar_cartao(%s)", (cartao_id,))
+    return "", 204
+
+
 @app.get("/api/cards/<int:cartao_id>/permissions")
 def ver_permissoes(cartao_id: int):
     exigir_admin()
@@ -872,6 +883,12 @@ def ler_conta(dados) -> tuple:
     return email, bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
+# So pode existir um administrador
+def garantir_sem_admin(con):
+    if con.execute("SELECT * FROM fn_existe_admin()").fetchone():
+        raise ErroApi(409, "Ja existe um administrador (so e permitido um)")
+
+
 # {"nome", "perfil"} para docentes e funcionarios; {"nome", "perfil": "admin", "email", "password"} para admins
 @app.post("/api/users")
 def criar_utilizador():
@@ -881,6 +898,8 @@ def criar_utilizador():
     perfil = ler_opcao(dados.get("perfil", "docente"), "perfil", PERFIS)
     if not nome:
         raise ErroApi(422, "'nome' e obrigatorio")
+    if perfil == "admin":
+        garantir_sem_admin(bd())
     email, password_hash = ler_conta(dados) if perfil == "admin" else (None, None)
     try:
         novo = bd().execute(
@@ -908,6 +927,8 @@ def alterar_utilizador(utilizador_id: int):
     # Nunca deixar o sistema sem administradores
     if perfil != atual["perfil"] and utilizador_id == eu["id"]:
         raise ErroApi(400, "Nao pode mudar o seu proprio perfil")
+    if perfil == "admin" and atual["perfil"] != "admin":
+        garantir_sem_admin(con)
     nome = str(dados.get("nome") or atual["nome"]).strip()
 
     email, password_hash = atual["email"], atual["password_hash"]
@@ -922,6 +943,23 @@ def alterar_utilizador(utilizador_id: int):
         ).fetchone()
     except psycopg.errors.UniqueViolation:
         raise ErroApi(409, "Ja existe um utilizador com esse email")
+
+
+# Remove um docente ou funcionario: os cartoes sao revogados e deixa de aparecer na app,
+# mas o historico (registos e aulas) continua a mostrar o nome. O administrador nao pode ser removido.
+@app.delete("/api/users/<int:utilizador_id>")
+def remover_utilizador(utilizador_id: int):
+    exigir_admin()
+    con = bd()
+    atual = con.execute(
+        "SELECT * FROM fn_utilizador_completo(%s)", (utilizador_id,)
+    ).fetchone()
+    if not atual:
+        raise ErroApi(404, "Utilizador nao encontrado")
+    if atual["perfil"] == "admin":
+        raise ErroApi(400, "O administrador nao pode ser removido")
+    con.execute("CALL sp_remover_utilizador(%s)", (utilizador_id,))
+    return "", 204
 
 
 # ======================================================

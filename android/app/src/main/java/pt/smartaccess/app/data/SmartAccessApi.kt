@@ -7,6 +7,7 @@ import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -50,6 +51,10 @@ interface SmartAccessApi {
     @PATCH("api/cards/{id}")
     suspend fun alterarCartao(@Path("id") id: Long, @Body alteracao: AlteracaoCartao): Cartao
 
+    // Apaga o cartao (o historico de acessos guarda so o UID, nao se perde)
+    @DELETE("api/cards/{id}")
+    suspend fun apagarCartao(@Path("id") id: Long)
+
     @PUT("api/cards/{id}/permissions")
     suspend fun definirPermissoes(@Path("id") id: Long, @Body permissoes: List<Permissao>): List<Permissao>
 
@@ -67,6 +72,10 @@ interface SmartAccessApi {
 
     @PATCH("api/users/{id}")
     suspend fun alterarUtilizador(@Path("id") id: Long, @Body alteracao: AlteracaoUtilizador): Utilizador
+
+    // Remove um docente/funcionario: os cartoes sao revogados, o historico mantem o nome. O admin nao pode ser removido.
+    @DELETE("api/users/{id}")
+    suspend fun removerUtilizador(@Path("id") id: Long)
 
     @GET("api/devices")
     suspend fun dispositivos(): List<DispositivoGestao>

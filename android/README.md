@@ -34,10 +34,10 @@ A app comunica com a API (pasta `api/`) por HTTPS, com Retrofit + OkHttp + Gson.
 | POST | `api/door/unlock` | Painel / Portas (abrir porta remotamente) |
 | GET | `api/door/commands/{id}` | Confirmação de que o Arduino executou a abertura |
 | GET | `api/logs` | Registos de acesso (filtros: datas, utilizador, resultado) |
-| GET / POST / PATCH | `api/cards`, `api/cards/{id}` | Cartões (aprovar, associar, revogar) |
+| GET / POST / PATCH / DELETE | `api/cards`, `api/cards/{id}` | Cartões (aprovar, associar, revogar, apagar) |
 | PUT | `api/cards/{id}/permissions` | Horário próprio de um cartão |
 | GET / PATCH | `api/alerts`, `api/alerts/{id}` | Alertas |
-| GET / POST / PATCH | `api/users`, `api/users/{id}` | Utilizadores |
+| GET / POST / PATCH / DELETE | `api/users`, `api/users/{id}` | Pessoas (só existe um administrador, que não pode ser removido) |
 | GET / PATCH | `api/devices`, `api/devices/{id}` | Gestão de portas (Arduinos) |
 | GET | `api/classes` | Aulas |
 | GET / PUT | `api/schedules`, `api/schedules/{perfil}` | Horários por perfil |

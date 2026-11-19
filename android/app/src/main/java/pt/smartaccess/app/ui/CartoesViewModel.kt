@@ -46,6 +46,11 @@ class CartoesViewModel(
             api.alterarCartao(cartao.id, AlteracaoCartao(estado = "ativo"))
         }
 
+    fun apagar(cartao: Cartao) =
+        executar("Cartao ${cartao.uid} apagado") {
+            api.apagarCartao(cartao.id)
+        }
+
     fun guardarHorarios(cartao: Cartao, permissoes: List<Permissao>) =
         executar("Horario guardado") {
             api.definirPermissoes(cartao.id, permissoes)

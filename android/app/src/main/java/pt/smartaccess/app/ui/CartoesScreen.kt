@@ -4,6 +4,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +59,7 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
     val utilizadores by viewModel.utilizadores.collectAsStateWithLifecycle()
     var aAssociar by remember { mutableStateOf<AAssociar?>(null) }
     var aRevogar by remember { mutableStateOf<Cartao?>(null) }
+    var aApagar by remember { mutableStateOf<Cartao?>(null) }
     var horarios by remember { mutableStateOf<Cartao?>(null) }
     var filtro by rememberSaveable { mutableStateOf(FiltroCartoes.TODOS) }
     var pesquisa by rememberSaveable { mutableStateOf("") }
@@ -109,6 +112,7 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
                                 aoRevogar = { aRevogar = cartao },
                                 aoReativar = { viewModel.reativar(cartao) },
                                 aoEditarHorarios = { horarios = cartao },
+                                aoApagar = { aApagar = cartao },
                             )
                         }
                     }
@@ -152,6 +156,26 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
         )
     }
 
+    aApagar?.let { cartao ->
+        AlertDialog(
+            onDismissRequest = { aApagar = null },
+            title = { Text("Apagar cartao?") },
+            text = {
+                Text(
+                    "O cartao ${cartao.uid}${cartao.utilizador?.let { " ($it)" } ?: ""} e o seu horario sao apagados. " +
+                        "O historico de acessos mantem-se. Se o cartao voltar a ser passado numa porta, aparece de novo como \"Por aprovar\"."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.apagar(cartao)
+                    aApagar = null
+                }) { Text("Apagar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { aApagar = null }) { Text("Cancelar") } },
+        )
+    }
+
     horarios?.let { cartao ->
         DialogoHorarios(
             titulo = "Horario de ${cartao.uid}",
@@ -176,6 +200,7 @@ fun EtiquetaEstadoCartao(estado: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CartaoItem(
     cartao: Cartao,
@@ -184,6 +209,7 @@ private fun CartaoItem(
     aoRevogar: () -> Unit,
     aoReativar: () -> Unit,
     aoEditarHorarios: () -> Unit,
+    aoApagar: () -> Unit,
 ) {
     CartaoLista(destaque = if (cartao.estado == "pendente") MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f) else null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -218,7 +244,7 @@ private fun CartaoItem(
         )
 
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (cartao.estado) {
                 "pendente" -> Button(onClick = aoAprovar) { Text("Associar a alguem") }
                 "ativo" -> {
@@ -228,6 +254,7 @@ private fun CartaoItem(
                 }
                 "revogado" -> OutlinedButton(onClick = aoReativar) { Text("Reativar") }
             }
+            TextButton(onClick = aoApagar) { Text("Apagar", color = MaterialTheme.colorScheme.error) }
         }
     }
 }

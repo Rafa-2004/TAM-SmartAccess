@@ -59,6 +59,7 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
     var aCriar by remember { mutableStateOf(false) }
     var aMudarPerfil by remember { mutableStateOf<Utilizador?>(null) }
     var aAssociar by remember { mutableStateOf<Utilizador?>(null) }
+    var aRemover by remember { mutableStateOf<Utilizador?>(null) }
     var pesquisa by rememberSaveable { mutableStateOf("") }
     var perfilFiltro by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -107,6 +108,7 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
                                 souEu = u.id == eu.id,
                                 aoAssociar = { aAssociar = u },
                                 aoMudarPerfil = { aMudarPerfil = u },
+                                aoRemover = { aRemover = u },
                             )
                         }
                     }
@@ -145,6 +147,27 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
         )
     }
 
+    aRemover?.let { u ->
+        val ativos = cartoes.count { it.utilizadorId == u.id && it.estado == "ativo" }
+        AlertDialog(
+            onDismissRequest = { aRemover = null },
+            title = { Text("Remover ${u.nome}?") },
+            text = {
+                Text(
+                    (if (ativos > 0) "Os $ativos cartao(oes) ativo(s) desta pessoa sao revogados e deixam de abrir as portas. " else "") +
+                        "A pessoa deixa de aparecer na lista, mas o historico de acessos e aulas continua a mostrar o nome."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.remover(u)
+                    aRemover = null
+                }) { Text("Remover", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { aRemover = null }) { Text("Cancelar") } },
+        )
+    }
+
     aMudarPerfil?.let { u ->
         DialogoPerfil(
             utilizador = u,
@@ -165,6 +188,7 @@ private fun CartaoPessoa(
     souEu: Boolean,
     aoAssociar: () -> Unit,
     aoMudarPerfil: () -> Unit,
+    aoRemover: () -> Unit,
 ) {
     CartaoLista {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -202,21 +226,25 @@ private fun CartaoPessoa(
         }
 
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = aoAssociar) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Associar cartao")
             }
-            // Um admin nao muda o proprio perfil (ficaria sem acesso a gestao)
-            if (!souEu) TextButton(onClick = aoMudarPerfil) { Text("Mudar perfil") }
+            // O administrador (so ha um) nao muda o proprio perfil nem pode ser removido
+            if (!souEu && !pessoa.admin) {
+                TextButton(onClick = aoMudarPerfil) { Text("Mudar perfil") }
+                TextButton(onClick = aoRemover) { Text("Remover", color = MaterialTheme.colorScheme.error) }
+            }
         }
     }
 }
 
 @Composable
 private fun EscolhaPerfil(escolhido: String, aoEscolher: (String) -> Unit) {
-    PERFIS.forEach { perfil ->
+    // So existe um administrador: nao se pode criar outro nem promover ninguem a admin
+    PERFIS.filter { it != "admin" }.forEach { perfil ->
         Row(
             modifier = Modifier
                 .fillMaxWidth()

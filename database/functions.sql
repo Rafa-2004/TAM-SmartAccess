@@ -1,34 +1,43 @@
-SmartAccess - FUNCTIONS (fn_)  -  consultas que devolvem linhas
+--  SmartAccess - FUNCTIONS (fn_)  -  consultas que devolvem linhas
 
 
 -- ---------- Utilizadores ----------
+-- Utilizadores removidos (removido_em preenchido) sao ignorados em todas as consultas abaixo
+
 -- POST /api/auth/login
 CREATE OR REPLACE FUNCTION tam.fn_utilizador_por_email(p_email text)
 RETURNS TABLE (id bigint, nome text, email text, perfil text, password_hash text)
 LANGUAGE sql STABLE AS $$
   SELECT u.id, u.nome, u.email, u.perfil, u.password_hash
-  FROM tam.utilizadores u WHERE lower(u.email) = lower(p_email);
+  FROM tam.utilizadores u WHERE lower(u.email) = lower(p_email) AND u.removido_em IS NULL;
 $$;
 
 -- utilizador_atual()
 CREATE OR REPLACE FUNCTION tam.fn_utilizador_por_id(p_id bigint)
 RETURNS TABLE (id bigint, nome text, email text, perfil text)
 LANGUAGE sql STABLE AS $$
-  SELECT u.id, u.nome, u.email, u.perfil FROM tam.utilizadores u WHERE u.id = p_id;
+  SELECT u.id, u.nome, u.email, u.perfil FROM tam.utilizadores u WHERE u.id = p_id AND u.removido_em IS NULL;
 $$;
 
 -- cartoes / utilizadores: verificar se o utilizador existe
 CREATE OR REPLACE FUNCTION tam.fn_utilizador_existe(p_id bigint)
 RETURNS TABLE (existe int)
 LANGUAGE sql STABLE AS $$
-  SELECT 1 FROM tam.utilizadores WHERE id = p_id;
+  SELECT 1 FROM tam.utilizadores WHERE id = p_id AND removido_em IS NULL;
 $$;
 
 -- GET /api/users
 CREATE OR REPLACE FUNCTION tam.fn_listar_utilizadores()
 RETURNS TABLE (id bigint, nome text, email text, perfil text)
 LANGUAGE sql STABLE AS $$
-  SELECT u.id, u.nome, u.email, u.perfil FROM tam.utilizadores u ORDER BY u.nome;
+  SELECT u.id, u.nome, u.email, u.perfil FROM tam.utilizadores u WHERE u.removido_em IS NULL ORDER BY u.nome;
+$$;
+
+-- POST/PATCH /api/users: so pode existir um administrador
+CREATE OR REPLACE FUNCTION tam.fn_existe_admin()
+RETURNS TABLE (id bigint)
+LANGUAGE sql STABLE AS $$
+  SELECT u.id FROM tam.utilizadores u WHERE u.perfil = 'admin' AND u.removido_em IS NULL LIMIT 1;
 $$;
 
 -- POST /api/users
@@ -44,7 +53,7 @@ $$;
 CREATE OR REPLACE FUNCTION tam.fn_utilizador_completo(p_id bigint)
 RETURNS TABLE (nome text, perfil text, email text, password_hash text)
 LANGUAGE sql STABLE AS $$
-  SELECT u.nome, u.perfil, u.email, u.password_hash FROM tam.utilizadores u WHERE u.id = p_id;
+  SELECT u.nome, u.perfil, u.email, u.password_hash FROM tam.utilizadores u WHERE u.id = p_id AND u.removido_em IS NULL;
 $$;
 
 CREATE OR REPLACE FUNCTION tam.fn_atualizar_utilizador(p_nome text, p_perfil text, p_email text, p_password_hash text, p_id bigint)

@@ -41,6 +41,11 @@ class UtilizadoresViewModel(
             api.alterarUtilizador(utilizador.id, alteracao)
         }
 
+    fun remover(utilizador: Utilizador) =
+        executar("${utilizador.nome} removido") {
+            api.removerUtilizador(utilizador.id)
+        }
+
     // Se ja existir um cartao pendente com este UID (lido numa porta), fica aprovado; senao e criado
     fun associar(uid: String, escolha: EscolhaPessoa) =
         executar("Cartao $uid associado a ${escolha.nome}") {

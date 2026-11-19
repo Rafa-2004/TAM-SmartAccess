@@ -34,6 +34,14 @@ ALTER TABLE tam.utilizadores DROP CONSTRAINT IF EXISTS admin_tem_conta;
 ALTER TABLE tam.utilizadores ADD CONSTRAINT admin_tem_conta
   CHECK (perfil <> 'admin' OR (email IS NOT NULL AND password_hash IS NOT NULL));
 
+-- Remover um utilizador nao apaga a linha (o historico de acessos e aulas continua a mostrar o nome):
+-- fica com removido_em preenchido, deixa de aparecer na app e os seus cartoes sao revogados.
+ALTER TABLE tam.utilizadores ADD COLUMN IF NOT EXISTS removido_em TIMESTAMPTZ;
+
+-- So pode existir UM administrador (e esse nao pode ser removido)
+CREATE UNIQUE INDEX IF NOT EXISTS um_so_admin_idx ON tam.utilizadores ((true))
+  WHERE perfil = 'admin' AND removido_em IS NULL;
+
 -- Horario por omissao de cada perfil (usado quando o cartao nao tem permissoes proprias).
 -- O admin nao precisa: entra sempre.
 CREATE TABLE IF NOT EXISTS tam.horarios_perfil (

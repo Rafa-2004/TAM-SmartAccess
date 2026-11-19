@@ -71,6 +71,20 @@ LANGUAGE sql AS $$
   INSERT INTO tam.permissoes (cartao_id, dia_semana, hora_inicio, hora_fim) VALUES (p_cartao_id, p_dia, p_inicio, p_fim);
 $$;
 
+-- DELETE /api/cards/<id>  (as permissoes proprias sao apagadas em cascata; os registos guardam so o UID)
+CREATE OR REPLACE PROCEDURE tam.sp_apagar_cartao(p_cartao_id bigint)
+LANGUAGE sql AS $$
+  DELETE FROM tam.cartoes WHERE id = p_cartao_id;
+$$;
+
+-- ---------- Utilizadores ----------
+-- DELETE /api/users/<id>: revoga os cartoes e marca o utilizador como removido (o historico mantem o nome)
+CREATE OR REPLACE PROCEDURE tam.sp_remover_utilizador(p_utilizador_id bigint)
+LANGUAGE sql AS $$
+  UPDATE tam.cartoes SET estado = 'revogado' WHERE utilizador_id = p_utilizador_id AND estado <> 'revogado';
+  UPDATE tam.utilizadores SET removido_em = now() WHERE id = p_utilizador_id AND removido_em IS NULL;
+$$;
+
 -- ---------- Comandos ----------
 -- GET /api/device/commands
 CREATE OR REPLACE PROCEDURE tam.sp_expirar_comandos(p_dispositivo_id bigint, p_validade interval)
