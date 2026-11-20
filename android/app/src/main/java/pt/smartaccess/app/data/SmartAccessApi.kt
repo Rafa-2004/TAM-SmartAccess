@@ -20,6 +20,12 @@ interface SmartAccessApi {
     @POST("api/auth/login")
     suspend fun login(@Body pedido: PedidoLogin): RespostaLogin
 
+    @GET("api/setup")
+    suspend fun estadoInicial(): EstadoInicial
+
+    @POST("api/setup")
+    suspend fun criarAdministrador(@Body novo: NovoAdministrador): RespostaLogin
+
     @GET("api/me")
     suspend fun eu(): Utilizador
 
@@ -82,6 +88,10 @@ interface SmartAccessApi {
 
     @PATCH("api/devices/{id}")
     suspend fun alterarDispositivo(@Path("id") id: Long, @Body alteracao: AlteracaoDispositivo): DispositivoGestao
+
+    // Apaga a porta e todo o historico dela (registos, aulas, passagens, alertas)
+    @DELETE("api/devices/{id}")
+    suspend fun apagarDispositivo(@Path("id") id: Long)
 
     @GET("api/classes")
     suspend fun aulas(@Query("limite") limite: Int = 50): List<Aula>

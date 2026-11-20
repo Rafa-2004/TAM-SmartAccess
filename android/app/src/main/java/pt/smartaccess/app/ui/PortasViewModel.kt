@@ -33,6 +33,11 @@ class PortasViewModel(
             api.alterarDispositivo(dispositivo.id, AlteracaoDispositivo(estado = "revogado"))
         }
 
+    fun apagar(dispositivo: DispositivoGestao) =
+        executar("${dispositivo.nome} apagada") {
+            api.apagarDispositivo(dispositivo.id)
+        }
+
     fun reativar(dispositivo: DispositivoGestao) =
         executar("${dispositivo.nome} reativada") {
             api.alterarDispositivo(dispositivo.id, AlteracaoDispositivo(estado = "ativo"))

@@ -18,6 +18,12 @@ data class PedidoLogin(val email: String, val password: String)
 
 data class RespostaLogin(val token: String, val utilizador: Utilizador)
 
+// GET /api/setup: no primeiro arranque ainda nao ha administrador
+data class EstadoInicial(@SerializedName("precisa_admin") val precisaAdmin: Boolean)
+
+// POST /api/setup: cria o (unico) administrador e devolve a sessao como o login
+data class NovoAdministrador(val nome: String, val email: String, val password: String)
+
 // perfil: admin (docente administrador) | funcionario | docente; email e password so para o admin
 data class NovoUtilizador(
     val nome: String,

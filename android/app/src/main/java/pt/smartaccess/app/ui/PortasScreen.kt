@@ -2,6 +2,8 @@ package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +44,7 @@ fun PortasScreen(snackbar: SnackbarHostState, viewModel: PortasViewModel) {
     var aAprovar by remember { mutableStateOf<DispositivoGestao?>(null) }
     var aRenomear by remember { mutableStateOf<DispositivoGestao?>(null) }
     var aRevogar by remember { mutableStateOf<DispositivoGestao?>(null) }
+    var aApagar by remember { mutableStateOf<DispositivoGestao?>(null) }
 
     MostrarMensagens(viewModel, snackbar)
     AtualizarPeriodicamente(10_000) { viewModel.atualizar() }
@@ -65,6 +68,7 @@ fun PortasScreen(snackbar: SnackbarHostState, viewModel: PortasViewModel) {
                         aoRenomear = { aRenomear = porta },
                         aoRevogar = { aRevogar = porta },
                         aoReativar = { viewModel.reativar(porta) },
+                        aoApagar = { aApagar = porta },
                     )
                 }
             }
@@ -118,8 +122,30 @@ fun PortasScreen(snackbar: SnackbarHostState, viewModel: PortasViewModel) {
             dismissButton = { TextButton(onClick = { aRevogar = null }) { Text("Cancelar") } },
         )
     }
+
+    aApagar?.let { porta ->
+        AlertDialog(
+            onDismissRequest = { aApagar = null },
+            title = { Text("Apagar ${porta.nome}?") },
+            text = {
+                Text(
+                    "A porta e TODO o historico dela (registos de acesso, aulas, passagens e alertas) sao apagados " +
+                        "e nao ha volta atras. Se o Arduino continuar ligado, regista-se de novo e aparece como " +
+                        "\"Por aprovar\". Para so impedir a porta de funcionar, use \"Revogar\"."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.apagar(porta)
+                    aApagar = null
+                }) { Text("Apagar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { aApagar = null }) { Text("Cancelar") } },
+        )
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CartaoPorta(
     porta: DispositivoGestao,
@@ -127,6 +153,7 @@ private fun CartaoPorta(
     aoRenomear: () -> Unit,
     aoRevogar: () -> Unit,
     aoReativar: () -> Unit,
+    aoApagar: () -> Unit,
 ) {
     val c = MaterialTheme.colorScheme
     CartaoLista(destaque = if (porta.estado == "pendente") c.tertiaryContainer.copy(alpha = 0.45f) else null) {
@@ -162,7 +189,7 @@ private fun CartaoPorta(
         }
 
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (porta.estado) {
                 "pendente" -> Button(onClick = aoAprovar) { Text("Aprovar porta") }
                 "ativo" -> {
@@ -171,6 +198,7 @@ private fun CartaoPorta(
                 }
                 "revogado" -> OutlinedButton(onClick = aoReativar) { Text("Reativar") }
             }
+            TextButton(onClick = aoApagar) { Text("Apagar", color = c.error) }
         }
     }
 }

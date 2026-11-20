@@ -487,8 +487,11 @@ def login():
     # So o administrador tem conta na app (docentes e funcionarios sao so o nome do cartao)
     if utilizador["perfil"] != "admin":
         raise ErroApi(403, "So os administradores podem entrar na app")
+    return {"token": criar_token(utilizador), "utilizador": utilizador}
 
-    token = jwt.encode(
+
+def criar_token(utilizador) -> str:
+    return jwt.encode(
         {
             "sub": str(utilizador["id"]),
             "perfil": utilizador["perfil"],
@@ -497,7 +500,34 @@ def login():
         segredo_jwt(),
         algorithm="HS256",
     )
-    return {"token": token, "utilizador": utilizador}
+
+
+# Primeiro arranque: enquanto nao existir administrador, a app mostra "Criar administrador".
+@app.get("/api/setup")
+def estado_inicial():
+    return {"precisa_admin": bd().execute("SELECT * FROM fn_existe_admin()").fetchone() is None}
+
+
+# Cria o (unico) administrador e devolve logo a sessao, como o login. Sem autenticacao:
+# so funciona enquanto nao houver nenhum administrador (o indice um_so_admin_idx garante-o na BD).
+@app.post("/api/setup")
+def criar_primeiro_admin():
+    dados = corpo_json()
+    nome = str(dados.get("nome", "")).strip()
+    if not nome:
+        raise ErroApi(422, "'nome' e obrigatorio")
+    con = bd()
+    if con.execute("SELECT * FROM fn_existe_admin()").fetchone():
+        raise ErroApi(409, "O administrador ja foi criado: entre com o email e a palavra-passe")
+    email, password_hash = ler_conta(dados)
+    try:
+        admin = con.execute(
+            "SELECT * FROM fn_inserir_utilizador(%s, %s, %s, %s)",
+            (nome, email, password_hash, "admin"),
+        ).fetchone()
+    except psycopg.errors.UniqueViolation:
+        raise ErroApi(409, "O administrador ja foi criado: entre com o email e a palavra-passe")
+    return {"token": criar_token(admin), "utilizador": admin}, 201
 
 
 @app.get("/api/me")
@@ -1072,6 +1102,18 @@ def alterar_dispositivo(dispositivo_id: int):
         ).fetchone()
     except psycopg.errors.UniqueViolation:
         raise ErroApi(409, "Ja existe um dispositivo com esse nome")
+
+
+# Apaga a porta e todo o historico dela (registos, aulas, passagens, alertas, comandos).
+# Se o Arduino continuar ligado, a chave deixa de existir: regista-se de novo e aparece como pendente.
+@app.delete("/api/devices/<int:dispositivo_id>")
+def apagar_dispositivo(dispositivo_id: int):
+    exigir_admin()
+    con = bd()
+    if not con.execute("SELECT * FROM fn_dispositivo_nome_estado(%s)", (dispositivo_id,)).fetchone():
+        raise ErroApi(404, "Dispositivo nao encontrado")
+    con.execute("CALL sp_apagar_dispositivo(%s)", (dispositivo_id,))
+    return "", 204
 
 
 # Historico das aulas (um docente ou funcionario so ve as suas)

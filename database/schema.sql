@@ -133,9 +133,14 @@ ALTER TABLE tam.registos_acesso ADD COLUMN IF NOT EXISTS aviso TEXT;
 CREATE INDEX IF NOT EXISTS registos_data_idx ON tam.registos_acesso (data_hora DESC);
 CREATE INDEX IF NOT EXISTS registos_dispositivo_idx ON tam.registos_acesso (dispositivo_id, data_hora DESC);
 
+-- Os registos so aceitam insercoes. Unica excecao: apagar uma porta (sp_apagar_dispositivo) apaga
+-- tambem o historico dela; o procedimento liga a variavel tam.apagar_porta so durante essa transacao.
 CREATE OR REPLACE FUNCTION tam.impedir_alteracao_registos() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  IF TG_OP = 'DELETE' AND current_setting('tam.apagar_porta', true) = 'sim' THEN
+    RETURN OLD;
+  END IF;
   RAISE EXCEPTION 'registos_acesso so aceita insercoes';
 END;
 $$;

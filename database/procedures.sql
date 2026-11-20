@@ -77,6 +77,24 @@ LANGUAGE sql AS $$
   DELETE FROM tam.cartoes WHERE id = p_cartao_id;
 $$;
 
+-- ---------- Dispositivos ----------
+-- DELETE /api/devices/<id>: apaga a porta e TODO o historico dela (passagens, aulas, comandos, alertas, registos).
+-- Os registos sao imutaveis (trigger registos_imutaveis): a variavel tam.apagar_porta abre uma excecao
+-- so dentro desta transacao. Se o Arduino continuar ligado, regista-se de novo e aparece como pendente.
+CREATE OR REPLACE PROCEDURE tam.sp_apagar_dispositivo(p_dispositivo_id bigint)
+LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM set_config('tam.apagar_porta', 'sim', true);
+  DELETE FROM tam.passagens WHERE dispositivo_id = p_dispositivo_id;
+  DELETE FROM tam.aulas WHERE dispositivo_id = p_dispositivo_id;
+  DELETE FROM tam.comandos WHERE dispositivo_id = p_dispositivo_id;
+  DELETE FROM tam.alertas WHERE dispositivo_id = p_dispositivo_id;
+  DELETE FROM tam.registos_acesso WHERE dispositivo_id = p_dispositivo_id;
+  DELETE FROM tam.dispositivos WHERE id = p_dispositivo_id;
+  PERFORM set_config('tam.apagar_porta', '', true);
+END;
+$$;
+
 -- ---------- Utilizadores ----------
 -- DELETE /api/users/<id>: revoga os cartoes e marca o utilizador como removido (o historico mantem o nome)
 CREATE OR REPLACE PROCEDURE tam.sp_remover_utilizador(p_utilizador_id bigint)

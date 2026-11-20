@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import pt.smartaccess.app.data.DadosSessao
+import pt.smartaccess.app.data.NovoAdministrador
 import pt.smartaccess.app.data.PedidoLogin
 import pt.smartaccess.app.data.SessaoStore
 import pt.smartaccess.app.data.SmartAccessApi
@@ -40,6 +41,49 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
 
     private val _erroLogin = MutableStateFlow<String?>(null)
     val erroLogin: StateFlow<String?> = _erroLogin
+
+    // Primeiro arranque: null = ainda nao se sabe (ou sem rede), true = falta criar o administrador
+    private val _precisaAdmin = MutableStateFlow<Boolean?>(null)
+    val precisaAdmin: StateFlow<Boolean?> = _precisaAdmin
+
+    fun verificarPrimeiroArranque() {
+        viewModelScope.launch {
+            try {
+                _precisaAdmin.value = api.estadoInicial().precisaAdmin
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _precisaAdmin.value = null   // sem rede: mostra o login
+            }
+        }
+    }
+
+    fun criarAdministrador(nome: String, email: String, password: String, confirmacao: String) {
+        _erroLogin.value = when {
+            nome.isBlank() -> "Preencha o nome"
+            "@" !in email -> "Email invalido"
+            password.length < 6 -> "A palavra-passe tem de ter pelo menos 6 caracteres"
+            password != confirmacao -> "As palavras-passe nao coincidem"
+            else -> null
+        }
+        if (_erroLogin.value != null) return
+        viewModelScope.launch {
+            _aEntrar.value = true
+            try {
+                val resposta = api.criarAdministrador(NovoAdministrador(nome.trim(), email.trim(), password))
+                _precisaAdmin.value = false
+                store.guardar(DadosSessao(resposta.token, resposta.utilizador))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _erroLogin.value = e.mensagemErro()
+                // Ja havia administrador (ex.: criado noutro telemovel): volta ao login
+                if (e is retrofit2.HttpException && e.code() == 409) _precisaAdmin.value = false
+            } finally {
+                _aEntrar.value = false
+            }
+        }
+    }
 
     init {
         SmartAccessApi.aoExpirarSessao = { sair() }

@@ -24,6 +24,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +45,12 @@ fun AppSmartAccess(sessaoViewModel: SessaoViewModel = viewModel()) {
         EstadoSessao.ACarregar -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        EstadoSessao.SemSessao -> LoginScreen(sessaoViewModel)
+        EstadoSessao.SemSessao -> {
+            // Primeiro arranque (ainda nao ha administrador): cria-o em vez de fazer login
+            val precisaAdmin by sessaoViewModel.precisaAdmin.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { sessaoViewModel.verificarPrimeiroArranque() }
+            if (precisaAdmin == true) PrimeiroAdminScreen(sessaoViewModel) else LoginScreen(sessaoViewModel)
+        }
         is EstadoSessao.Ativa -> EcraPrincipal(s.dados.utilizador, aoSair = sessaoViewModel::sair)
     }
 }
