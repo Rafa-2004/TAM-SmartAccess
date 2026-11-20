@@ -134,6 +134,8 @@ data class Registo(
     val motivo: String?,
     val dispositivo: String,
     val entradas: Int,
+    // Ex.: sala fechada com pessoas contadas dentro (saidas nao detetadas)
+    val aviso: String? = null,
 ) {
     val concedido: Boolean get() = resultado == "concedido"
 }

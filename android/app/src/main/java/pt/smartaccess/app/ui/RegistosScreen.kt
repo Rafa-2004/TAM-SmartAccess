@@ -138,7 +138,12 @@ private fun LinhaRegisto(registo: Registo) {
     ListItem(
         leadingContent = { Avatar(registo.utilizador ?: "?", perfil = null, tamanho = 40.dp) },
         headlineContent = { Text(registo.utilizador ?: "Cartao ${registo.cartaoUid}") },
-        supportingContent = { Text(detalhes.joinToString(" - "), color = c.onSurfaceVariant) },
+        supportingContent = {
+            Column {
+                Text(detalhes.joinToString(" - "), color = c.onSurfaceVariant)
+                registo.aviso?.let { Text("Aviso: $it", color = c.error, style = MaterialTheme.typography.bodySmall) }
+            }
+        },
         trailingContent = {
             if (registo.concedido) Etiqueta("Concedido", c.secondaryContainer, c.onSecondaryContainer)
             else Etiqueta("Negado", c.errorContainer, c.onErrorContainer)

@@ -559,12 +559,23 @@ def pedir_acesso():
     else:
         acao = "abrir"
 
+    # Fechar com pessoas contadas dentro: o registo fica com o aviso (fechar_aula repoe a contagem e cria o alerta)
+    aviso = None
+    if acao == "fechar":
+        dentro = con.execute(
+            "SELECT * FROM fn_pessoas_dentro(%s)", (dispositivo["id"],)
+        ).fetchone()["pessoas_dentro"]
+        if dentro > 0:
+            aviso = (f"Sala fechada com {dentro} pessoa(s) contada(s) dentro: possivelmente "
+                     f"{dentro} saida(s) nao detetada(s). Contagem reposta a 0")
+
     registo = con.execute(
-        "SELECT * FROM fn_inserir_registo_cartao(%s, %s, %s, %s, %s)",
+        "SELECT * FROM fn_inserir_registo_cartao(%s, %s, %s, %s, %s, %s)",
         (
             dispositivo["id"], uid, cartao["utilizador_id"] if cartao else None,
             "concedido" if acao else "negado",
             {"abrir": "inicio_aula", "fechar": "fim_aula"}.get(acao, motivo),
+            aviso,
         ),
     ).fetchone()
 

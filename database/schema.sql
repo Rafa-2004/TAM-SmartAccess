@@ -127,6 +127,9 @@ CREATE TABLE IF NOT EXISTS tam.registos_acesso (
   CONSTRAINT resultado_valido CHECK (resultado IN ('concedido', 'negado'))
 );
 
+-- Aviso mostrado no registo (ex.: sala fechada com pessoas contadas dentro = saidas nao detetadas)
+ALTER TABLE tam.registos_acesso ADD COLUMN IF NOT EXISTS aviso TEXT;
+
 CREATE INDEX IF NOT EXISTS registos_data_idx ON tam.registos_acesso (data_hora DESC);
 CREATE INDEX IF NOT EXISTS registos_dispositivo_idx ON tam.registos_acesso (dispositivo_id, data_hora DESC);
 

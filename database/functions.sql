@@ -324,12 +324,13 @@ $$;
 
 -- ---------- Registos de acesso ----------
 -- POST /api/access
+DROP FUNCTION IF EXISTS tam.fn_inserir_registo_cartao(bigint, text, bigint, text, text);   -- versao sem aviso
 CREATE OR REPLACE FUNCTION tam.fn_inserir_registo_cartao(p_dispositivo_id bigint, p_uid text, p_utilizador_id bigint,
-                                                          p_resultado text, p_motivo text)
+                                                          p_resultado text, p_motivo text, p_aviso text)
 RETURNS TABLE (id bigint)
 LANGUAGE sql AS $$
-  INSERT INTO tam.registos_acesso (dispositivo_id, cartao_uid, utilizador_id, origem, resultado, motivo)
-  VALUES (p_dispositivo_id, p_uid, p_utilizador_id, 'cartao', p_resultado, p_motivo)
+  INSERT INTO tam.registos_acesso (dispositivo_id, cartao_uid, utilizador_id, origem, resultado, motivo, aviso)
+  VALUES (p_dispositivo_id, p_uid, p_utilizador_id, 'cartao', p_resultado, p_motivo, p_aviso)
   RETURNING tam.registos_acesso.id;
 $$;
 
@@ -343,15 +344,17 @@ LANGUAGE sql AS $$
 $$;
 
 -- GET /api/logs
+DROP FUNCTION IF EXISTS tam.fn_listar_registos(date, date, bigint, text, integer, text);   -- mudou o resultado (aviso)
 CREATE OR REPLACE FUNCTION tam.fn_listar_registos(p_desde date, p_ate date, p_utilizador bigint,
                                                    p_resultado text, p_limite integer, p_fuso text)
 RETURNS TABLE (id bigint, data_hora timestamptz, cartao_uid text, utilizador_id bigint, utilizador text,
-               origem text, resultado text, motivo text, dispositivo text, entradas int)
+               origem text, resultado text, motivo text, dispositivo text, entradas int, aviso text)
 LANGUAGE sql STABLE AS $$
   SELECT r.id, r.data_hora, r.cartao_uid, r.utilizador_id, u.nome AS utilizador,
          r.origem, r.resultado, r.motivo, d.nome AS dispositivo,
          (SELECT count(*) FROM tam.passagens p
-          WHERE p.registo_acesso_id = r.id AND p.sentido = 'entrada')::int AS entradas
+          WHERE p.registo_acesso_id = r.id AND p.sentido = 'entrada')::int AS entradas,
+         r.aviso
   FROM tam.registos_acesso r
   JOIN tam.dispositivos d ON d.id = r.dispositivo_id
   LEFT JOIN tam.utilizadores u ON u.id = r.utilizador_id
