@@ -180,7 +180,7 @@ void mostrarInfo();
 
 // ======================================================
 void setup() {
-  Serial.begin(115200);               // a 9600 cada linha de registo bloqueava o loop ~0,1 s (Monitor Serie: 115200 baud)
+  Serial.begin(9600);                 // Monitor Serie a 9600 baud (valor por omissao do Arduino IDE)
   Serial.setTimeout(50);              // o readString() esperava 1 s por cada comando escrito
 
   pinMode(TRIG_A, OUTPUT);
@@ -240,7 +240,7 @@ void loop() {
     texto.trim();
     texto.toUpperCase();
     if (texto == "E" || texto == "S") {
-      if (!aulaAberta) registarLog("PASSAGEM", "Ignorada: a porta esta trancada, ninguem pode entrar nem sair");
+      if (!aulaAberta) registarLog("PASSAGEM", "Ignorada: a porta está trancada, ninguém pode entrar nem sair");
       else registarPassagem(texto == "E" ? "entrada" : "saida");
     }
     else if (texto == "D") mostrarDistancias = !mostrarDistancias;
@@ -337,7 +337,7 @@ void bip(unsigned int frequencia, unsigned long duracao) {
 void lerMemoria() {
   apiKey[0] = '\0';
   if (EEPROM.read(EE_ASSINATURA) != 'S' || EEPROM.read(EE_ASSINATURA + 1) != 'A') {
-    registarLog("SISTEMA", "Memoria vazia: primeiro arranque deste Arduino");
+    registarLog("SISTEMA", "Memória vazia: primeiro arranque deste Arduino");
     return;
   }
   for (int i = 0; i < 64; i++) {
@@ -351,7 +351,7 @@ void lerMemoria() {
   apiKey[64] = '\0';
 
   estadoDispositivo = ATIVO;          // ate a API dizer o contrario
-  registarLog("SISTEMA", "Chave do dispositivo lida da memoria");
+  registarLog("SISTEMA", "Chave do dispositivo lida da memória");
 }
 
 void guardarChave(const String& chave) {
@@ -385,15 +385,15 @@ bool registarDispositivo() {
   int estado = pedidoApi(true, "/api/device/register", "{\"mac\":\"" + mac + "\"}", resposta);
   String chave = lerCampoTexto(resposta, "api_key");
   if (estado != 201 || chave.length() != 64) {
-    registarLog("API", String("Falha no registo (codigo ") + estado + "): " + resposta);
+    registarLog("API", String("Falha no registo (código ") + estado + "): " + resposta);
     mostrarTemporario("Falha no registo", String("Codigo ") + estado);
     return false;
   }
   guardarChave(chave);
   nomePorta = lerCampoTexto(resposta, "nome");
   estadoDispositivo = PENDENTE;
-  registarLog("API", "Registado como " + nomePorta + ". Chave guardada na memoria.");
-  registarLog("API", "Um administrador tem de aprovar esta porta na app (Dispositivos)");
+  registarLog("API", "Registado como " + nomePorta + ". Chave guardada na memória.");
+  registarLog("API", "Um administrador tem de aprovar esta porta na app (Gestão > Portas)");
   mostrarRepouso();
   return true;
 }
@@ -405,7 +405,7 @@ bool pedirConfiguracao() {
   online = estado > 0 && estado < 500;
   if (problemaDispositivo(estado, resposta)) return false;
   if (estado != 200) {
-    registarLog("API", String("Sem configuracao (codigo ") + estado + ") - a usar a guardada na memoria");
+    registarLog("API", String("Sem configuração (código ") + estado + ") - a usar a guardada na memória");
     mostrarRepouso();
     return false;
   }
@@ -434,7 +434,7 @@ bool pedirConfiguracao() {
     saidasAula = max(0L, lerCampoNumero(resposta, "saidas"));
   } else if (resposta.indexOf("\"aula\":null") >= 0 && aulaAberta && numPendentes == 0) {
     // A aula foi fechada na API enquanto a porta estava sem contacto: tranca para ficar igual
-    registarLog("AULA", "A API ja nao tem esta aula aberta - a trancar");
+    registarLog("AULA", "A API já não tem esta aula aberta - a trancar");
     fecharSala("Fechada na API");
   }
   ultimaConsulta = millis();
@@ -471,7 +471,7 @@ void tratarCartao(String uid) {
   registarLog("CARTAO", "Lido " + uid);
 
   if (estadoDispositivo == PENDENTE || estadoDispositivo == REVOGADO) {
-    registarLog("CARTAO", estadoDispositivo == PENDENTE ? "Ignorado: porta ainda nao aprovada na app"
+    registarLog("CARTAO", estadoDispositivo == PENDENTE ? "Ignorado: porta ainda não aprovada na app"
                                                          : "Ignorado: porta revogada na app");
     acessoNegado(estadoDispositivo == PENDENTE ? "Porta por aprovar" : "Porta revogada");
     return;
@@ -479,7 +479,7 @@ void tratarCartao(String uid) {
 
   // Ainda sem chave (registo falhou ou esta a decorrer): a API recusaria o pedido, o cartao e recusado
   if (apiKey[0] == '\0') {
-    registarLog("CARTAO", "Porta ainda sem registo na API - cartao recusado");
+    registarLog("CARTAO", "Porta ainda sem registo na API - cartão recusado");
     tratarSemRede(uid);
     return;
   }
@@ -495,7 +495,7 @@ void tratarCartao(String uid) {
   }
   if (estado < 0 || estado >= 500) {
     online = false;
-    registarLog("API", String("Sem ligacao (codigo ") + estado + ") - cartao recusado");
+    registarLog("API", String("Sem ligação (código ") + estado + ") - cartão recusado");
     tratarSemRede(uid);
     return;
   }
@@ -525,8 +525,8 @@ void tratarCartao(String uid) {
     String motivo = lerCampoTexto(resposta, "motivo");
     if (motivo == "aula_a_decorrer") {
       String dono = lerCampoTexto(resposta, "dono");
-      registarLog("CARTAO", nome + " (" + textoPerfil(perfil) + ") nao pode fechar a aula de " + dono +
-                            ": so o dono, um administrador ou um funcionario");
+      registarLog("CARTAO", nome + " (" + textoPerfil(perfil) + ") não pode fechar a aula de " + dono +
+                            ": só o dono, um administrador ou um funcionário (ou qualquer cartão, se foi aberta pela app)");
       bip(300, 150);
       mostrarTemporario("Aula a decorrer", "So o dono fecha");
     } else {
@@ -535,14 +535,14 @@ void tratarCartao(String uid) {
     }
     return;
   }
-  registarLog("API", String("Resposta inesperada (codigo ") + estado + "): " + resposta);
+  registarLog("API", String("Resposta inesperada (código ") + estado + "): " + resposta);
   acessoNegado(String("Erro API ") + estado);
 }
 
 // Sem ligacao a API nenhum cartao abre nem fecha a porta.
 // Modo sem rede removido: sem ligacao a API nenhum cartao abre nem fecha a porta (a decisao e sempre da API).
 void tratarSemRede(const String& uid) {
-  registarLog("CARTAO", "NEGADO: sem ligacao a API (" + uid + ")");
+  registarLog("CARTAO", "NEGADO: sem ligação à API (" + uid + ")");
   acessoNegado("Sem rede");
 }
 
@@ -573,7 +573,7 @@ void fecharSala(const String& linha2) {
   // se a contagem ainda tem pessoas, os sensores falharam alguma saida. A API faz o mesmo e cria um alerta.
   if (pessoasDentro > 0) {
     registarLog("ALERTA", String("Sala fechada com ") + pessoasDentro + " pessoa(s) contada(s) dentro: possivelmente " +
-                          pessoasDentro + " saida(s) nao detetada(s). Contagem reposta a 0");
+                          pessoasDentro + " saída(s) não detetada(s). Contagem reposta a 0");
     pessoasDentro = 0;
   }
   // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
@@ -595,19 +595,19 @@ void mostrarResumo(const String& resposta) {
   long saidasNaoDetetadas = lerCampoNumero(resposta, "saidas_nao_detetadas");
   long duracao = lerCampoNumero(resposta, "duracao_min");
   Serial.println(F("  +------------- Resumo da aula -------------+"));
-  Serial.print(F("  | Duracao: "));
+  Serial.print(F("  | Duração: "));
   Serial.print(duracao);
   Serial.println(F(" min"));
   Serial.print(F("  | Entradas: "));
   Serial.print(entradas);
-  Serial.print(F("   Saidas: "));
+  Serial.print(F("   Saídas: "));
   Serial.println(saidas);
   if (naoDetetadas > 0) {
-    Serial.print(F("  | Entradas nao detetadas pelos sensores: "));
+    Serial.print(F("  | Entradas não detetadas pelos sensores: "));
     Serial.println(naoDetetadas);
   }
   if (saidasNaoDetetadas > 0) {
-    Serial.print(F("  | Saidas nao detetadas (contagem reposta a 0): "));
+    Serial.print(F("  | Saídas não detetadas (contagem reposta a 0): "));
     Serial.println(saidasNaoDetetadas);
   }
   Serial.println(F("  +------------------------------------------+"));
@@ -627,7 +627,7 @@ void acessoNegado(const String& linha2) {
 
 String textoPerfil(const String& perfil) {
   if (perfil == "admin") return "administrador";
-  if (perfil == "funcionario") return "funcionario";
+  if (perfil == "funcionario") return "funcionário";
   if (perfil == "docente") return "docente";
   return "utilizador";
 }
@@ -675,7 +675,7 @@ void calibrarSensores() {
     if (validas >= 5) s->limiar = max(10L, soma / validas - MARGEM_CM);
 
     String texto = String("Sensor ") + s->nome + (s->nome == 'A' ? " (fora): " : " (dentro): ");
-    if (validas >= 5) texto += String("referencia ") + (soma / validas) + " cm, ";
+    if (validas >= 5) texto += String("referência ") + (soma / validas) + " cm, ";
     else texto += "sem eco, ";
     texto += String("ocupado abaixo de ") + s->limiar + " cm";
     registarLog("SENSOR", texto);
@@ -746,14 +746,14 @@ void verificarPassagem() {
     fim = true;
   }
   if (!fim && agora - ultimaMudanca > TIMEOUT_PASSAGEM_MS) {
-    registarLog("PASSAGEM", "Alguem parado na porta - a passagem foi fechada");
+    registarLog("PASSAGEM", "Alguém parado na porta - a passagem foi fechada");
     fim = true;
   }
   if (!fim) return;
 
   primeiroSensor = 0;
   if (numTravessias == 0) {
-    registarLog("PASSAGEM", "Ignorada: a pessoa voltou para tras");
+    registarLog("PASSAGEM", "Ignorada: a pessoa voltou para trás");
     return;
   }
   for (int i = 0; i < numTravessias; i++) {
@@ -781,10 +781,10 @@ void registarPassagem(const char* sentido) {
   guardarPendente(entrada ? 'E' : 'S', "");
 
   if (naoDetetada) {
-    registarLog("ALERTA", "Saida com 0 pessoas dentro: houve 1 entrada que os sensores nao detetaram");
+    registarLog("ALERTA", "Saída com 0 pessoas dentro: houve 1 entrada que os sensores não detetaram");
   }
-  registarLog("PASSAGEM", String(entrada ? "ENTRADA" : "SAIDA  ") + " | dentro: " + pessoasDentro +
-                          " | aula: " + entradasAula + " entradas, " + saidasAula + " saidas" +
+  registarLog("PASSAGEM", String(entrada ? "ENTRADA" : "SAÍDA  ") + " | dentro: " + pessoasDentro +
+                          " | aula: " + entradasAula + " entradas, " + saidasAula + " saídas" +
                           (online ? "" : " (sem rede)"));
 }
 
@@ -833,7 +833,7 @@ bool enviarPassagem(const char* sentido) {
 
 void guardarPendente(char tipo, const String& uid) {
   if (numPendentes >= MAX_PENDENTES) {
-    registarLog("ALERTA", "Memoria de eventos sem rede cheia - evento perdido");
+    registarLog("ALERTA", "Memória de eventos sem rede cheia - evento perdido");
     return;
   }
   pendentes[numPendentes].tipo = tipo;
@@ -855,7 +855,7 @@ void enviarPendentes(int maximo) {
     // A API recusou o evento (ex.: cartao que entretanto foi apagado): repetir nao adianta, descarta-o.
     // Sem rede, erro do servidor ou porta por aprovar (401/403): fica para a proxima tentativa.
     if (!ok && ultimoEstadoHttp >= 400 && ultimoEstadoHttp < 500 && ultimoEstadoHttp != 401 && ultimoEstadoHttp != 403) {
-      registarLog("API", String("Evento sem rede recusado pela API (codigo ") + ultimoEstadoHttp + ") - descartado");
+      registarLog("API", String("Evento sem rede recusado pela API (código ") + ultimoEstadoHttp + ") - descartado");
       ok = true;
     }
     if (!ok) break;
@@ -879,7 +879,7 @@ void consultarComandos() {
   if (problemaDispositivo(estado, resposta)) return;
   online = estado == 200;
   if (online != estavaOnline) {
-    registarLog("API", online ? "Ligacao a API restabelecida" : String("Sem ligacao a API (codigo ") + estado + ")");
+    registarLog("API", online ? "Ligação à API restabelecida" : String("Sem ligação à API (código ") + estado + ")");
     if (mensagemEm == 0) mostrarRepouso();
   }
   if (!online) return;
@@ -937,7 +937,7 @@ bool ligarWiFi() {
     registarLog("WIFI", String("Ligado | IP ") + ip[0] + "." + ip[1] + "." + ip[2] + "." + ip[3] +
                         " | sinal " + WiFi.RSSI() + " dBm | MAC " + mac);
   } else {
-    registarLog("WIFI", "Rede indisponivel - a funcionar sem rede");
+    registarLog("WIFI", "Rede indisponível - a funcionar sem rede");
   }
   mostrarRepouso();
   return ligado;
@@ -1027,10 +1027,10 @@ void mostrarRepouso() {
 
 void mostrarAjuda() {
   Serial.println(F("----------------------------------------------"));
-  Serial.println(F(" Comandos no Monitor Serie:"));
-  Serial.println(F("   <UID>  simula um cartao (ex.: 8DF36E69)"));
-  Serial.println(F("   E / S  simula uma entrada / saida"));
-  Serial.println(F("   D      mostra as distancias dos sensores"));
+  Serial.println(F(" Comandos no Monitor Série:"));
+  Serial.println(F("   <UID>  simula um cartão (ex.: 8DF36E69)"));
+  Serial.println(F("   E / S  simula uma entrada / saída"));
+  Serial.println(F("   D      mostra as distâncias dos sensores"));
   Serial.println(F("   I      estado da porta e da aula"));
   Serial.println(F("   R      apaga o registo e regista de novo"));
   Serial.println(F("   ?      esta ajuda"));
@@ -1038,14 +1038,14 @@ void mostrarAjuda() {
 }
 
 void mostrarInfo() {
-  const char* estados[] = {"sem registo", "a aguardar aprovacao", "ativa", "revogada"};
+  const char* estados[] = {"sem registo", "a aguardar aprovação", "ativa", "revogada"};
   Serial.println(F("------------------ Estado --------------------"));
   Serial.println("  Porta:        " + nomePorta + " (" + estados[estadoDispositivo] + ")");
   Serial.println("  MAC:          " + mac);
-  Serial.println(String("  API:          ") + API_HOST + (online ? " (ligada)" : " (sem ligacao)"));
+  Serial.println(String("  API:          ") + API_HOST + (online ? " (ligada)" : " (sem ligação)"));
   Serial.println(String("  Aula:         ") + (aulaAberta ? "a decorrer - " + donoNome : "nenhuma (porta trancada)"));
   Serial.println(String("  Dentro:       ") + pessoasDentro + " pessoas");
-  if (aulaAberta) Serial.println(String("  Nesta aula:   ") + entradasAula + " entradas, " + saidasAula + " saidas");
+  if (aulaAberta) Serial.println(String("  Nesta aula:   ") + entradasAula + " entradas, " + saidasAula + " saídas");
   Serial.println(String("  Por enviar:   ") + numPendentes + " eventos");
   Serial.println(F("----------------------------------------------"));
 }
