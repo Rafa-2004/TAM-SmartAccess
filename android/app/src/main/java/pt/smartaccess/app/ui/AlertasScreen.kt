@@ -60,6 +60,7 @@ private fun tituloAlerta(tipo: String): String = when (tipo) {
     "dispositivo_offline" -> "Porta sem contacto"
     "entrada_sem_acesso" -> "Entrada com a sala fechada"
     "dispositivo_novo" -> "Porta nova por aprovar"
+    "saida_nao_detetada" -> "Saida nao detetada"
     else -> tipo
 }
 

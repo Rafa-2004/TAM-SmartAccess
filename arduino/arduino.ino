@@ -41,7 +41,12 @@ const int RFID_RST = 0;   // RST do RC522
 const int LIMIAR_CM = 100;                          // limiar por omissao se a calibracao nao tiver eco
 const int MARGEM_CM = 45;                           // ocupado = mais perto do que (referencia - margem)
 const int LEITURAS_CONFIRMAR = 2;                   // leituras seguidas para mudar de estado (filtra ruido)
-const unsigned long TEMPO_FIM_MS = 400;             // ambos livres durante isto = a pessoa ja passou
+const unsigned long TEMPO_FIM_MS = 250;             // ambos livres durante isto = a pessoa ja passou
+// Os pedidos a API bloqueiam o loop (~0,3-1 s) e durante esse tempo os sensores nao sao lidos.
+// Por isso as passagens so se contam na hora e so se enviam (tal como os pedidos de comandos)
+// quando a porta esta livre ha PORTA_LIVRE_MS. Com movimento continuo, envia-se na mesma ao fim de ESPERA_MAX_MS.
+const unsigned long PORTA_LIVRE_MS = 700;
+const unsigned long ESPERA_MAX_MS = 15000;
 const unsigned long TIMEOUT_PASSAGEM_MS = 5000;     // 5 s sem nenhum sensor mudar = alguem parado na porta
 // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
 
@@ -115,6 +120,8 @@ char travessias[MAX_TRAVESSIAS];   // 'E' / 'S' por ordem; so se enviam no fim (
 int numTravessias = 0;
 unsigned long ultimaMudanca = 0;
 unsigned long livreDesde = 0;
+unsigned long ultimoMovimento = 0;   // ultima vez que um dos sensores estava tapado (com a aula a decorrer)
+unsigned long pendenteDesde = 0;     // quando ficou a primeira passagem por enviar (0 = nenhuma)
 
 bool mostrarDistancias = false;   // 'D' no Monitor Serie liga/desliga
 unsigned long ultimaImpressao = 0;
@@ -126,7 +133,7 @@ struct EventoPendente {
   char tipo;
   char uid[21];
 };
-const int MAX_PENDENTES = 16;
+const int MAX_PENDENTES = 32;     // passagens por enviar (so se enviam com a porta livre) e eventos sem rede
 EventoPendente pendentes[MAX_PENDENTES];
 int numPendentes = 0;
 
@@ -155,7 +162,9 @@ void verificarPassagem();
 void registarPassagem(const char* sentido);
 bool enviarPassagem(const char* sentido);
 void guardarPendente(char tipo, const String& uid);
-void enviarPendentes();
+void enviarPendentes(int maximo = MAX_PENDENTES);
+int saldoPorEnviar(int desde, char tipo);
+bool portaLivre();
 void consultarComandos();
 bool enviarEvento(const String& corpo);
 bool ligarWiFi();
@@ -170,7 +179,7 @@ void mostrarInfo();
 
 // ======================================================
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);               // a 9600 cada linha de registo bloqueava o loop ~0,1 s (Monitor Serie: 115200 baud)
   Serial.setTimeout(50);              // o readString() esperava 1 s por cada comando escrito
 
   pinMode(TRIG_A, OUTPUT);
@@ -262,9 +271,15 @@ void loop() {
     mostrarRepouso();
   }
 
-  // 4) Contacto com a API. Nao a meio de uma passagem: o pedido bloqueia o loop e os sensores deixariam de ser lidos
-  if (primeiroSensor == 0) {
-    if (estadoDispositivo == ATIVO && millis() - ultimaConsulta >= intervaloComandosMs) {
+  // 4) Contacto com a API. So com a porta livre: o pedido bloqueia o loop e os sensores deixariam de ser lidos.
+  //    Primeiro as passagens por enviar (uma de cada vez, para voltar a ler os sensores entre pedidos).
+  bool livre = portaLivre();
+  bool forcar = millis() - ultimaConsulta >= ESPERA_MAX_MS ||
+                (pendenteDesde != 0 && millis() - pendenteDesde >= ESPERA_MAX_MS);
+  if (primeiroSensor == 0 && (livre || forcar)) {
+    if (estadoDispositivo == ATIVO && numPendentes > 0 && online) {
+      enviarPendentes(1);
+    } else if (estadoDispositivo == ATIVO && millis() - ultimaConsulta >= intervaloComandosMs) {
       consultarComandos();
     } else if (estadoDispositivo != ATIVO && millis() - ultimaTentativaRegisto >= INTERVALO_REGISTO_MS) {
       prepararDispositivo();
@@ -281,7 +296,14 @@ void loop() {
     }
   }
 
-  delay(20);
+  delay(5);
+}
+
+// Ninguem na porta ha PORTA_LIVRE_MS (com a sala trancada os sensores nao contam: esta sempre livre)
+bool portaLivre() {
+  if (!aulaAberta) return true;
+  return primeiroSensor == 0 && !sensorA.ocupado && !sensorB.ocupado &&
+         millis() - ultimoMovimento >= PORTA_LIVRE_MS;
 }
 
 // ======================================================
@@ -462,6 +484,8 @@ void tratarCartao(String uid) {
   }
 
   mostrar("A verificar...", uid);
+  // Primeiro as passagens ainda por enviar: ao fechar a sala, a API tem de ter a contagem certa
+  if (numPendentes > 0 && online) enviarPendentes();
   String resposta;
   int estado = pedidoApi(true, "/api/access", "{\"uid\":\"" + uid + "\"}", resposta);
   if (problemaDispositivo(estado, resposta)) {
@@ -542,6 +566,13 @@ void abrirSala(const String& uid, const String& nome, const String& perfil) {
 
 void fecharSala(const String& linha2) {
   aulaAberta = false;
+  // Uma sala nunca fica trancada com alguem dentro (quem fecha e o ultimo a sair):
+  // se a contagem ainda tem pessoas, os sensores falharam alguma saida. A API faz o mesmo e cria um alerta.
+  if (pessoasDentro > 0) {
+    registarLog("ALERTA", String("Sala fechada com ") + pessoasDentro + " pessoa(s) contada(s) dentro: possivelmente " +
+                          pessoasDentro + " saida(s) nao detetada(s). Contagem reposta a 0");
+    pessoasDentro = 0;
+  }
   // Servo removido (gastava energia a mais e fazia cair o Wi-Fi).
   digitalWrite(LED_VERDE, LOW);
   digitalWrite(LED_VERMELHO, HIGH);
@@ -558,6 +589,7 @@ void mostrarResumo(const String& resposta) {
   long entradas = lerCampoNumero(resposta, "entradas");
   long saidas = lerCampoNumero(resposta, "saidas");
   long naoDetetadas = lerCampoNumero(resposta, "entradas_nao_detetadas");
+  long saidasNaoDetetadas = lerCampoNumero(resposta, "saidas_nao_detetadas");
   long duracao = lerCampoNumero(resposta, "duracao_min");
   Serial.println(F("  +------------- Resumo da aula -------------+"));
   Serial.print(F("  | Duracao: "));
@@ -567,11 +599,13 @@ void mostrarResumo(const String& resposta) {
   Serial.print(entradas);
   Serial.print(F("   Saidas: "));
   Serial.println(saidas);
-  Serial.print(F("  | Ainda dentro: "));
-  Serial.println(pessoasDentro);
   if (naoDetetadas > 0) {
     Serial.print(F("  | Entradas nao detetadas pelos sensores: "));
     Serial.println(naoDetetadas);
+  }
+  if (saidasNaoDetetadas > 0) {
+    Serial.print(F("  | Saidas nao detetadas (contagem reposta a 0): "));
+    Serial.println(saidasNaoDetetadas);
   }
   Serial.println(F("  +------------------------------------------+"));
 }
@@ -674,6 +708,7 @@ void verificarPassagem() {
     primeiroSensor = 0;
     return;
   }
+  if (a || b) ultimoMovimento = agora;
 
   // 1) Inicio: so comeca quando um dos lados e tapado antes do outro
   if (primeiroSensor == 0) {
@@ -738,15 +773,29 @@ void registarPassagem(const char* sentido) {
   bip(entrada ? 1500 : 900, 80);              // agudo = entrada, grave = saida
   mostrarTemporario(entrada ? "Entrou 1 pessoa" : "Saiu 1 pessoa", String("Dentro: ") + pessoasDentro);
 
-  // A API tem a contagem oficial (atualiza pessoasDentro, entradasAula e saidasAula)
-  if (!enviarPassagem(sentido)) guardarPendente(entrada ? 'E' : 'S', "");
+  // Conta-se ja aqui, mas so se envia a API quando a porta ficar livre (o pedido bloquearia os sensores).
+  // A API tem a contagem oficial (atualiza pessoasDentro, entradasAula e saidasAula quando recebe).
+  guardarPendente(entrada ? 'E' : 'S', "");
 
   if (naoDetetada) {
     registarLog("ALERTA", "Saida com 0 pessoas dentro: houve 1 entrada que os sensores nao detetaram");
   }
   registarLog("PASSAGEM", String(entrada ? "ENTRADA" : "SAIDA  ") + " | dentro: " + pessoasDentro +
                           " | aula: " + entradasAula + " entradas, " + saidasAula + " saidas" +
-                          (online ? "" : " (por enviar)"));
+                          (online ? "" : " (sem rede)"));
+}
+
+// Diferenca que as passagens ainda por enviar (a partir da posicao "desde") vao fazer:
+// tipo 'D' = pessoas dentro (+1 entrada, -1 saida), 'E' = so entradas, 'S' = so saidas
+int saldoPorEnviar(int desde, char tipo) {
+  int saldo = 0;
+  for (int i = desde; i < numPendentes; i++) {
+    char t = pendentes[i].tipo;
+    if (t == 'E' && (tipo == 'D' || tipo == 'E')) saldo++;
+    if (t == 'S' && tipo == 'S') saldo++;
+    if (t == 'S' && tipo == 'D') saldo--;
+  }
+  return saldo;
 }
 
 // POST /api/device/events -> {"pessoas_dentro", "autorizada", "entrada_nao_detetada", "aula": {"entradas","saidas"}}
@@ -760,12 +809,13 @@ bool enviarPassagem(const char* sentido) {
     return false;
   }
   online = true;
+  // Valores da API + o que ainda esta na fila (esta passagem e a posicao 0 da fila)
   long valor = lerCampoNumero(resposta, "pessoas_dentro");
-  if (valor >= 0) pessoasDentro = valor;
+  if (valor >= 0) pessoasDentro = max(0L, valor + saldoPorEnviar(1, 'D'));
   valor = lerCampoNumero(resposta, "entradas");
-  if (valor >= 0) entradasAula = valor;
+  if (valor >= 0) entradasAula = valor + saldoPorEnviar(1, 'E');
   valor = lerCampoNumero(resposta, "saidas");
-  if (valor >= 0) saidasAula = valor;
+  if (valor >= 0) saidasAula = valor + saldoPorEnviar(1, 'S');
 
   if (resposta.indexOf("\"autorizada\":false") >= 0) {
     registarLog("ALERTA", "Entrada sem aula a decorrer (a API criou um alerta na app)");
@@ -786,13 +836,15 @@ void guardarPendente(char tipo, const String& uid) {
   pendentes[numPendentes].tipo = tipo;
   uid.toCharArray(pendentes[numPendentes].uid, sizeof(pendentes[numPendentes].uid));
   numPendentes++;
+  if (pendenteDesde == 0) pendenteDesde = millis();
 }
 
-// Envia por ordem o que ficou guardado enquanto nao havia rede (fica com a hora do envio)
-void enviarPendentes() {
+// Envia por ordem (no maximo "maximo") as passagens e eventos por enviar (ficam com a hora do envio).
+// O que esta a ser enviado e sempre a posicao 0 da fila.
+void enviarPendentes(int maximo) {
   int enviados = 0;
-  while (enviados < numPendentes) {
-    EventoPendente& e = pendentes[enviados];
+  while (numPendentes > 0 && enviados < maximo) {
+    EventoPendente& e = pendentes[0];
     bool ok;
     if (e.tipo == 'E' || e.tipo == 'S') ok = enviarPassagem(e.tipo == 'E' ? "entrada" : "saida");
     else if (e.tipo == 'A') ok = enviarEvento(String("{\"tipo\":\"porta\",\"aberta\":true,\"uid\":\"") + e.uid + "\"}");
@@ -804,11 +856,11 @@ void enviarPendentes() {
       ok = true;
     }
     if (!ok) break;
+    for (int i = 1; i < numPendentes; i++) pendentes[i - 1] = pendentes[i];
+    numPendentes--;
     enviados++;
   }
-  for (int i = enviados; i < numPendentes; i++) pendentes[i - enviados] = pendentes[i];
-  numPendentes -= enviados;
-  if (enviados > 0) registarLog("API", String(enviados) + " eventos guardados sem rede foram enviados");
+  if (numPendentes == 0) pendenteDesde = 0;
 }
 
 // ======================================================

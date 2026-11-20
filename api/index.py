@@ -353,7 +353,23 @@ def fechar_aula(con, aula, fechada_por, motivo: str) -> dict:
         (fechada_por, motivo, aula["id"]),
     )
     con.execute("CALL sp_fechar_porta(%s)", (aula["dispositivo_id"],))
-    return resumo_aula({**aula, "fim": datetime.now(timezone.utc)})
+
+    # Uma sala nunca fica trancada com alguem dentro (quem a fecha e o ultimo a sair).
+    # Se a contagem ainda tem pessoas dentro, os sensores falharam alguma saida: repoe-se a 0 e avisa-se.
+    dentro = con.execute(
+        "SELECT * FROM fn_pessoas_dentro(%s)", (aula["dispositivo_id"],)
+    ).fetchone()["pessoas_dentro"]
+    if dentro > 0:
+        con.execute(
+            "SELECT * FROM fn_atualizar_pessoas_dentro(%s, %s)", (-dentro, aula["dispositivo_id"])
+        )
+        criar_alerta(
+            con, "saida_nao_detetada", aula["dispositivo_id"],
+            f"Sala fechada com {dentro} pessoa(s) contada(s) dentro: possivelmente "
+            f"{dentro} saida(s) nao detetada(s) pelos sensores. A contagem foi reposta a 0.",
+            unico=False,
+        )
+    return {**resumo_aula({**aula, "fim": datetime.now(timezone.utc)}), "saidas_nao_detetadas": dentro}
 
 
 def criar_alerta(con, tipo: str, dispositivo_id: int, descricao: str, unico: bool = True):

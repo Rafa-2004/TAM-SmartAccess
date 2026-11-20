@@ -198,7 +198,8 @@ CREATE TABLE IF NOT EXISTS tam.alertas (
 
 ALTER TABLE tam.alertas DROP CONSTRAINT IF EXISTS tipo_valido;
 ALTER TABLE tam.alertas ADD CONSTRAINT tipo_valido CHECK (tipo IN (
-  'tentativas_negadas', 'dispositivo_offline', 'entrada_sem_acesso', 'dispositivo_novo'));
+  'tentativas_negadas', 'dispositivo_offline', 'entrada_sem_acesso', 'dispositivo_novo',
+  'saida_nao_detetada'));   -- sala fechada com pessoas contadas dentro (a contagem e reposta a 0)
 
 CREATE INDEX IF NOT EXISTS alertas_data_idx ON tam.alertas (resolvido, data_hora DESC);
 
