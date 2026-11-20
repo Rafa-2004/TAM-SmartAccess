@@ -518,7 +518,8 @@ def configuracao_dispositivo():
 
 # Decide o que acontece quando um cartao e passado:
 #   sala fechada  -> "abrir" (inicia a aula) se o cartao for valido e estiver dentro do horario
-#   aula aberta   -> "fechar" se for o dono da aula, um admin ou um funcionario (a qualquer hora)
+#   aula aberta   -> "fechar" se for o dono da aula, um admin ou um funcionario (a qualquer hora);
+#                    se a aula foi aberta pela app (sem cartao), qualquer cartao ativo a fecha (ex.: um docente)
 #                 -> negado "aula_a_decorrer" para os outros
 # 200 -> {"acesso": "concedido", "acao": "abrir"|"fechar", "nome", "perfil", "aula": {...}}
 # 403 -> {"acesso": "negado", "motivo", "nome", "perfil", "aula"}
@@ -549,6 +550,8 @@ def pedir_acesso():
         motivo = "cartao_revogado"
     elif aula and cartao["perfil"] in PERFIS_QUE_FECHAM_QUALQUER_AULA:
         acao = "fechar"
+    elif aula and aula["cartao_uid"] is None:
+        acao = "fechar"   # aberta pela app (sem cartao): qualquer cartao ativo a fecha, incluindo um docente
     elif aula:
         motivo = "aula_a_decorrer"
     elif cartao["perfil"] != "admin" and not dentro_do_horario(con, cartao["id"], cartao["perfil"]):

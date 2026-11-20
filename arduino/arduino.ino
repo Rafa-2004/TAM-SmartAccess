@@ -5,7 +5,8 @@
 //
 // O Arduino so le os sensores e executa: quem pode abrir/fechar a sala e decidido na API.
 //   - sala fechada: um cartao valido (dentro do horario do seu perfil) abre a porta e inicia a aula
-//   - aula a decorrer: o dono da aula, um administrador ou um funcionario fecham a sala
+//   - aula a decorrer: o dono da aula, um administrador ou um funcionario fecham a sala;
+//     uma aula aberta pela app (sem cartao) pode ser fechada por qualquer cartao ativo, incluindo um docente
 //   - os 2 sensores contam as entradas e saidas (so com a aula a decorrer: trancada ninguem passa)
 //
 // Nada de identificacao fica no codigo: no 1.o arranque o Arduino regista-se na API pelo seu MAC,
@@ -514,7 +515,9 @@ void tratarCartao(String uid) {
     } else {
       registarLog("AULA", "Fechada pelo " + textoPerfil(perfil) + " " + nome + " (aula de " + donoNome + ")");
     }
-    fecharSala(motivo == "dono" ? "Ate a proxima!" : (perfil == "admin" ? "Fechada p/ admin" : "Fechada p/ func."));
+    fecharSala(motivo == "dono" ? "Ate a proxima!" :
+               perfil == "admin" ? "Fechada p/ admin" :
+               perfil == "docente" ? "Fechada p/ doc." : "Fechada p/ func.");
     mostrarResumo(resposta);
     return;
   }

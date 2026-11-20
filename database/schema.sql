@@ -163,6 +163,11 @@ CREATE TABLE IF NOT EXISTS tam.aulas (
   CONSTRAINT fim_coerente CHECK ((fim IS NULL) = (motivo_fim IS NULL))
 );
 
+-- Atualizacao: uma aula aberta pela app (sem cartao) pode ser fechada por um docente (motivo_fim 'docente')
+ALTER TABLE tam.aulas DROP CONSTRAINT IF EXISTS motivo_fim_valido;
+ALTER TABLE tam.aulas ADD CONSTRAINT motivo_fim_valido
+  CHECK (motivo_fim IN ('dono', 'admin', 'funcionario', 'docente', 'offline', 'sistema'));
+
 -- So pode haver uma aula aberta por porta
 CREATE UNIQUE INDEX IF NOT EXISTS aulas_uma_aberta_idx ON tam.aulas (dispositivo_id) WHERE fim IS NULL;
 CREATE INDEX IF NOT EXISTS aulas_inicio_idx ON tam.aulas (inicio DESC);

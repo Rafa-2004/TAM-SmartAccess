@@ -169,7 +169,7 @@ fun textoPerfil(perfil: String?): String = when (perfil) {
 fun descricaoPerfil(perfil: String): String = when (perfil) {
     "admin" -> "Unico com conta na app. Entra a qualquer hora e fecha qualquer aula"
     "funcionario" -> "So cartao. Horario alargado, pode fechar qualquer aula"
-    "docente" -> "So cartao. Entra no seu horario e so fecha a aula que abriu"
+    "docente" -> "So cartao. Entra no seu horario e fecha a aula que abriu (ou uma aberta pela app)"
     else -> ""
 }
 
@@ -177,6 +177,7 @@ fun textoMotivoFim(motivo: String?): String = when (motivo) {
     "dono" -> "pelo dono da aula"
     "admin" -> "por um administrador"
     "funcionario" -> "por um funcionario"
+    "docente" -> "por um docente (aula aberta pela app)"
     "offline" -> "sem rede, no proprio Arduino"
     "sistema" -> "pelo sistema (porta reiniciada)"
     else -> ""
