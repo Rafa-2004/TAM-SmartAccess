@@ -93,32 +93,53 @@ def erro_interno(_):
 # ======================================================
 #  BASE DE DADOS
 # ======================================================
-# Abrir uma ligacao nova (TCP + TLS + autenticacao) custava ~1 s em cada pedido.
-# Agora a ligacao fica aberta e e reutilizada pelos pedidos seguintes enquanto a funcao
-# do Vercel estiver ativa. Cada pedido continua a ser uma transacao: no fim faz commit
-# (ou rollback se houve erro). Uma ligacao parada ha algum tempo e testada antes de ser usada.
-_ligacao = threading.local()
+# Abrir uma ligacao nova (TCP + TLS + autenticacao) custa ~1 s em cada pedido.
+# Por isso ha UMA ligacao partilhada, que fica aberta e e reutilizada pelos pedidos seguintes
+# enquanto a funcao do Vercel estiver ativa (o Vercel trata cada pedido numa thread diferente,
+# por isso nao pode ficar guardada por thread). So um pedido a usa de cada vez: se estiver ocupada,
+# o pedido abre uma ligacao so para si e fecha-a no fim. Cada pedido continua a ser uma transacao
+# (commit no fim, rollback se houve erro). Uma ligacao parada ha algum tempo e testada antes de ser usada.
+_partilhada = {"con": None, "usada_em": 0.0}
+_trinco = threading.Lock()
+
+
+def _nova_ligacao():
+    inicio = monotonic()
+    con = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=8,
+                          options="-c search_path=tam")
+    g.ms_ligar = (monotonic() - inicio) * 1000
+    return con
 
 
 def bd():
     if "con" not in g:
         if not DATABASE_URL:
             raise ErroApi(500, "DATABASE_URL nao configurada no servidor")
-        con = getattr(_ligacao, "con", None)
-        if con is not None and (con.closed or con.broken):
-            con = None
-        if con is not None and monotonic() - _ligacao.usada_em > TESTAR_LIGACAO_APOS_S:
-            try:
-                con.execute("SELECT 1")
-                con.rollback()
-            except psycopg.Error:
-                fechar_sem_erros(con)
+        if not _trinco.acquire(blocking=False):
+            g.partilhada = False                  # outro pedido esta a usar a partilhada
+            g.con = _nova_ligacao()
+            return g.con
+        g.partilhada = True
+        try:
+            con = _partilhada["con"]
+            if con is not None and (con.closed or con.broken):
                 con = None
-        if con is None:
-            con = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=8,
-                                  options="-c search_path=tam")
-        _ligacao.con = con
-        g.con = con
+            if con is not None and monotonic() - _partilhada["usada_em"] > TESTAR_LIGACAO_APOS_S:
+                try:
+                    con.execute("SELECT 1")
+                    con.rollback()
+                except psycopg.Error:
+                    fechar_sem_erros(con)
+                    con = None
+            if con is None:
+                con = _nova_ligacao()
+            _partilhada["con"] = con
+            g.con = con
+        except BaseException:
+            g.pop("partilhada", None)
+            _partilhada["con"] = None
+            _trinco.release()
+            raise
     return g.con
 
 
@@ -127,12 +148,13 @@ def fechar_sem_erros(con):
         con.close()
     except Exception:
         pass
-    if getattr(_ligacao, "con", None) is con:
-        _ligacao.con = None
+    if _partilhada["con"] is con:
+        _partilhada["con"] = None
 
 
-# Termina a transacao do pedido e deixa a ligacao pronta para o proximo
+# Termina a transacao do pedido; a partilhada fica pronta para o proximo pedido, uma temporaria e fechada
 def devolver_ligacao(con, sucesso: bool):
+    partilhada = g.pop("partilhada", False)
     if con is None:
         return
     try:
@@ -140,11 +162,34 @@ def devolver_ligacao(con, sucesso: bool):
             con.commit()
         else:
             con.rollback()
-        _ligacao.usada_em = monotonic()
+        if partilhada:
+            _partilhada["usada_em"] = monotonic()
+        else:
+            fechar_sem_erros(con)
     except Exception:
         fechar_sem_erros(con)   # ligacao estragada: o proximo pedido abre outra
         if sucesso:
             raise
+    finally:
+        if partilhada:
+            _trinco.release()
+
+
+# Tempos no cabecalho Server-Timing (para medir: abrir a ligacao a BD vs. o pedido todo)
+@app.before_request
+def iniciar_relogio():
+    g.inicio_pedido = monotonic()
+
+
+@app.after_request
+def tempos(resposta):
+    partes = [f"total;dur={(monotonic() - g.get('inicio_pedido', monotonic())) * 1000:.0f}"]
+    if "ms_ligar" in g:
+        partes.append(f"bd-ligar;dur={g.ms_ligar:.0f}")
+    elif "con" in g:
+        partes.append("bd-reutilizada;dur=0")
+    resposta.headers["Server-Timing"] = ", ".join(partes)
+    return resposta
 
 
 @app.teardown_request
