@@ -1,3 +1,4 @@
+// Gestao > Pessoas: criar, mudar perfil, remover e associar cartoes.
 package pt.smartaccess.app.ui
 
 import kotlinx.coroutines.CancellationException
@@ -20,6 +21,7 @@ class UtilizadoresViewModel(
     private val _cartoes = MutableStateFlow<List<Cartao>>(emptyList())
     val cartoes: StateFlow<List<Cartao>> = _cartoes
 
+    // Pessoas e cartoes (para mostrar os cartoes de cada pessoa)
     override suspend fun atualizar() {
         _estado.carregarDe { api.utilizadores() }
         try {
@@ -31,16 +33,19 @@ class UtilizadoresViewModel(
         }
     }
 
+    // Cria um docente ou funcionario
     fun criar(novo: NovoUtilizador) =
         executar("${novo.nome} criado como ${textoPerfil(novo.perfil).lowercase()}") {
             api.criarUtilizador(novo)
         }
 
+    // Docente <-> funcionario
     fun mudarPerfil(utilizador: Utilizador, alteracao: AlteracaoUtilizador) =
         executar("${utilizador.nome} passou a ${textoPerfil(alteracao.perfil).lowercase()}") {
             api.alterarUtilizador(utilizador.id, alteracao)
         }
 
+    // Remove a pessoa (cartoes revogados, o historico mantem o nome)
     fun remover(utilizador: Utilizador) =
         executar("${utilizador.nome} removido") {
             api.removerUtilizador(utilizador.id)

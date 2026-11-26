@@ -1,3 +1,4 @@
+// Componentes visuais reutilizados em varios ecras (avatares, etiquetas, cartoes, pesquisa).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.background
@@ -58,6 +59,7 @@ fun iniciais(nome: String?): String =
         }
     }.uppercase()
 
+// Circulo com as iniciais do nome, na cor do perfil
 @Composable
 fun Avatar(nome: String?, perfil: String?, tamanho: Dp = 44.dp) {
     val (fundo, texto) = coresPerfil(perfil)
@@ -104,6 +106,7 @@ fun Indicador(texto: String, cor: Color) {
     }
 }
 
+// Verde usado para 'Online'
 val Verde = Color(0xFF16A34A)
 
 // Cartao de lista com o estilo da app (fundo branco/elevado, cantos grandes)
@@ -124,6 +127,7 @@ fun CartaoLista(
     }
 }
 
+// Ecra de lista vazia: icone num circulo, titulo e explicacao opcional
 @Composable
 fun EstadoVazio(icone: ImageVector, titulo: String, texto: String? = null) {
     Column(
@@ -151,6 +155,7 @@ fun EstadoVazio(icone: ImageVector, titulo: String, texto: String? = null) {
     }
 }
 
+// Caixa de pesquisa com lupa e botao para limpar
 @Composable
 fun CampoPesquisa(valor: String, aoMudar: (String) -> Unit, dica: String, modifier: Modifier = Modifier) {
     OutlinedTextField(

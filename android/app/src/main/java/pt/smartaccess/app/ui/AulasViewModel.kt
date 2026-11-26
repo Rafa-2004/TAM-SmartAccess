@@ -1,3 +1,4 @@
+// Separador Aulas: historico das aulas.
 package pt.smartaccess.app.ui
 
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,7 @@ class AulasViewModel(
     private val _estado = MutableStateFlow<Carregamento<List<Aula>>>(Carregamento.ACarregar)
     val estado: StateFlow<Carregamento<List<Aula>>> = _estado
 
+    // Ultimas 100 aulas (GET /api/classes)
     override suspend fun atualizar() {
         _estado.carregarDe { api.aulas(limite = 100) }
     }

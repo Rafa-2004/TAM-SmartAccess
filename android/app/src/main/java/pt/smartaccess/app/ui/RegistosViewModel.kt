@@ -1,3 +1,4 @@
+// Separador Registos: registos de acesso com filtros.
 package pt.smartaccess.app.ui
 
 import androidx.lifecycle.viewModelScope
@@ -18,12 +19,14 @@ enum class Periodo(val titulo: String, val dias: Long?) {
     TUDO("Tudo", null),
 }
 
+// Filtros escolhidos no ecra Registos
 data class FiltrosRegistos(
     val periodo: Periodo = Periodo.SEMANA,
     val resultado: String? = null,          // null | "concedido" | "negado"
     val utilizador: Utilizador? = null,     // so para administradores
 )
 
+// ViewModel do separador Registos
 class RegistosViewModel(
     private val api: SmartAccessApi = SmartAccessApi.instancia,
 ) : BaseViewModel() {
@@ -37,6 +40,7 @@ class RegistosViewModel(
     private val _utilizadores = MutableStateFlow<List<Utilizador>>(emptyList())
     val utilizadores: StateFlow<List<Utilizador>> = _utilizadores
 
+    // Converte os filtros em parametros (desde = hoje menos N dias) e pede os registos
     override suspend fun atualizar() {
         val f = _filtros.value
         _estado.carregarDe {
@@ -48,12 +52,14 @@ class RegistosViewModel(
         }
     }
 
+    // Novo filtro: mostra a roda de carregamento e volta a pedir
     fun alterarFiltros(novos: FiltrosRegistos) {
         _filtros.value = novos
         _estado.value = Carregamento.ACarregar
         recarregar()
     }
 
+    // Lista de pessoas para o filtro (so e carregada uma vez)
     fun carregarUtilizadores() {
         if (_utilizadores.value.isNotEmpty()) return
         viewModelScope.launch {

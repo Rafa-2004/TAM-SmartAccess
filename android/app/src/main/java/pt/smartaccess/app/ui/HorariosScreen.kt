@@ -1,3 +1,4 @@
+// Gestao > Horarios: um cartao por perfil (docente, funcionario) com o seu horario.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Permissao
 
+// Um cartao por perfil e o dialogo de edicao (atualiza a cada 60 s)
 @Composable
 fun HorariosScreen(snackbar: SnackbarHostState, viewModel: HorariosViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -62,6 +64,7 @@ fun HorariosScreen(snackbar: SnackbarHostState, viewModel: HorariosViewModel) {
     }
 }
 
+// Nome e regras do perfil, janelas por dia e botao Editar
 @Composable
 private fun CartaoHorario(perfil: String, horario: List<Permissao>, aoEditar: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {

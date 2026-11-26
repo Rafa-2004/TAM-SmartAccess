@@ -1,3 +1,4 @@
+// Sessao do utilizador: login, primeiro arranque (criar o administrador), logout e token da API.
 package pt.smartaccess.app.ui
 
 import android.app.Application
@@ -18,17 +19,20 @@ import pt.smartaccess.app.data.SessaoStore
 import pt.smartaccess.app.data.SmartAccessApi
 import pt.smartaccess.app.data.mensagemErro
 
+// A ler a sessao guardada, sem sessao (mostra o login) ou com sessao ativa
 sealed interface EstadoSessao {
     data object ACarregar : EstadoSessao
     data object SemSessao : EstadoSessao
     data class Ativa(val dados: DadosSessao) : EstadoSessao
 }
 
+// AndroidViewModel (e nao ViewModel) porque o DataStore precisa do Context da aplicacao
 class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
 
     private val store = SessaoStore(aplicacao)
     private val api = SmartAccessApi.instancia
 
+    // Estado da sessao calculado a partir do que esta guardado; tambem atualiza o token usado nos pedidos
     val sessao: StateFlow<EstadoSessao> = store.dados
         .map { dados ->
             SmartAccessApi.token = dados?.token
@@ -36,9 +40,11 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, EstadoSessao.ACarregar)
 
+    // true enquanto um login ou a criacao do administrador esta a decorrer
     private val _aEntrar = MutableStateFlow(false)
     val aEntrar: StateFlow<Boolean> = _aEntrar
 
+    // Mensagem de erro do login / primeiro arranque (null = sem erro)
     private val _erroLogin = MutableStateFlow<String?>(null)
     val erroLogin: StateFlow<String?> = _erroLogin
 
@@ -46,6 +52,7 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
     private val _precisaAdmin = MutableStateFlow<Boolean?>(null)
     val precisaAdmin: StateFlow<Boolean?> = _precisaAdmin
 
+    // Pergunta a API se ainda falta criar o administrador
     fun verificarPrimeiroArranque() {
         viewModelScope.launch {
             try {
@@ -58,6 +65,8 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
         }
     }
 
+    // Valida os campos, cria o administrador na API e entra logo (guarda a sessao).
+    // Se a API responder 409 (ja existe administrador), volta ao ecra de login.
     fun criarAdministrador(nome: String, email: String, password: String, confirmacao: String) {
         _erroLogin.value = when {
             nome.isBlank() -> "Preencha o nome"
@@ -85,6 +94,7 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
         }
     }
 
+    // Ao criar: um 401 em qualquer pedido termina a sessao; e o perfil guardado e confirmado na API
     init {
         SmartAccessApi.aoExpirarSessao = { sair() }
         atualizarPerfil()
@@ -106,6 +116,7 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
         }
     }
 
+    // Login: valida os campos, pede o token a API e guarda a sessao (o ecra muda sozinho para a app)
     fun entrar(email: String, password: String) {
         if (email.isBlank() || password.isEmpty()) {
             _erroLogin.value = "Preencha o email e a palavra-passe"
@@ -127,10 +138,12 @@ class SessaoViewModel(aplicacao: Application) : AndroidViewModel(aplicacao) {
         }
     }
 
+    // Logout: apaga a sessao guardada (o ecra volta ao login)
     fun sair() {
         viewModelScope.launch { store.limpar() }
     }
 
+    // O ViewModel vai ser destruido: deixa de reagir aos 401
     override fun onCleared() {
         SmartAccessApi.aoExpirarSessao = null
     }

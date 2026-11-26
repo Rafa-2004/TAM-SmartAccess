@@ -1,3 +1,4 @@
+// Pecas comuns a todos os ecras: estado de carregamento, ViewModel base, atualizacao periodica e textos.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+// Estado de um ecra com dados da API: a carregar, erro (com mensagem) ou sucesso (com os dados)
 sealed interface Carregamento<out T> {
     data object ACarregar : Carregamento<Nothing>
     data class Erro(val mensagem: String) : Carregamento<Nothing>
@@ -42,6 +44,7 @@ sealed interface Carregamento<out T> {
 }
 
 // Se ja havia dados, um erro numa atualizacao automatica mantem-nos no ecra
+// Faz o pedido e guarda o resultado no estado do ecra.
 suspend fun <T> MutableStateFlow<Carregamento<T>>.carregarDe(pedido: suspend () -> T) {
     try {
         value = Carregamento.Sucesso(pedido())
@@ -54,19 +57,25 @@ suspend fun <T> MutableStateFlow<Carregamento<T>>.carregarDe(pedido: suspend () 
 
 // ViewModel com atualizacao dos dados e acoes que mostram uma mensagem no fim
 abstract class BaseViewModel : ViewModel() {
+    // Mensagens para o Snackbar (SharedFlow: cada mensagem e mostrada uma vez)
     private val _mensagens = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val mensagens: SharedFlow<String> = _mensagens
 
+    // Cada ViewModel diz aqui como vai buscar os seus dados a API
     abstract suspend fun atualizar()
 
+    // Volta a pedir os dados (botao 'Tentar de novo', mudanca de filtros)
     fun recarregar() {
         viewModelScope.launch { atualizar() }
     }
 
+    // Envia um texto para o Snackbar do ecra
     protected fun mostrarMensagem(texto: String) {
         _mensagens.tryEmit(texto)
     }
 
+    // Corre uma acao (aprovar, apagar...) numa coroutine:
+    // se correr bem mostra 'sucesso' e recarrega os dados; se falhar mostra o erro.
     protected fun executar(sucesso: String, acao: suspend () -> Unit) {
         viewModelScope.launch {
             try {
@@ -82,6 +91,7 @@ abstract class BaseViewModel : ViewModel() {
     }
 }
 
+// Mostra no Snackbar cada mensagem que o ViewModel enviar
 @Composable
 fun MostrarMensagens(viewModel: BaseViewModel, snackbar: SnackbarHostState) {
     LaunchedEffect(viewModel) {
@@ -103,6 +113,7 @@ fun AtualizarPeriodicamente(intervaloMs: Long, acao: suspend () -> Unit) {
     }
 }
 
+// Desenha o estado: roda a girar, erro com 'Tentar de novo', ou o conteudo com os dados
 @Composable
 fun <T> ConteudoCarregado(
     estado: Carregamento<T>,
@@ -127,6 +138,7 @@ fun <T> ConteudoCarregado(
     }
 }
 
+// Texto centrado (nao e usada atualmente: os ecras usam EstadoVazio)
 @Composable
 fun MensagemVazia(texto: String) {
     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
@@ -134,15 +146,18 @@ fun MensagemVazia(texto: String) {
     }
 }
 
+// Abreviaturas dos dias; o indice e dia_semana - 1 (1 = segunda ... 7 = domingo)
 val DIAS_SEMANA = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom")
 
 private val FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
+// Data ISO 8601 da API -> "dd/MM/yyyy HH:mm" no fuso do telemovel (se falhar, devolve o texto original)
 fun formatarData(iso: String): String =
     runCatching {
         OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(FORMATO_DATA)
     }.getOrDefault(iso)
 
+// Codigo do motivo de um registo -> texto para mostrar
 fun textoMotivo(motivo: String?): String = when (motivo) {
     "cartao_desconhecido" -> "Cartao desconhecido"
     "cartao_pendente" -> "Cartao por aprovar"
@@ -156,8 +171,10 @@ fun textoMotivo(motivo: String?): String = when (motivo) {
     else -> motivo
 }
 
+// Perfis possiveis (o admin nao aparece nas escolhas: so pode haver um)
 val PERFIS = listOf("admin", "funcionario", "docente")
 
+// Codigo do perfil -> nome para mostrar
 fun textoPerfil(perfil: String?): String = when (perfil) {
     "admin" -> "Docente administrador"
     "funcionario" -> "Funcionario"
@@ -166,6 +183,7 @@ fun textoPerfil(perfil: String?): String = when (perfil) {
     else -> perfil
 }
 
+// Regras de cada perfil, em texto (dialogos e ecra de horarios)
 fun descricaoPerfil(perfil: String): String = when (perfil) {
     "admin" -> "Unico com conta na app. Entra a qualquer hora e fecha qualquer aula"
     "funcionario" -> "So cartao. Horario alargado, pode fechar qualquer aula"
@@ -173,6 +191,7 @@ fun descricaoPerfil(perfil: String): String = when (perfil) {
     else -> ""
 }
 
+// Porque e que uma aula acabou (motivo_fim) -> texto
 fun textoMotivoFim(motivo: String?): String = when (motivo) {
     "dono" -> "pelo dono da aula"
     "admin" -> "por um administrador"

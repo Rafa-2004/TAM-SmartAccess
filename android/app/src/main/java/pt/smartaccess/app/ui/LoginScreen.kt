@@ -1,3 +1,4 @@
+// Ecra de login (so o administrador tem conta na app).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.background
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+// Campos de email e palavra-passe; o botao chama viewModel.entrar e mostra uma roda enquanto espera
 @Composable
 fun LoginScreen(viewModel: SessaoViewModel) {
     val aEntrar by viewModel.aEntrar.collectAsStateWithLifecycle()

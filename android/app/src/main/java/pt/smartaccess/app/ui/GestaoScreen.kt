@@ -1,3 +1,4 @@
+// Separador Gestao (so admin): sub-separadores Portas, Cartoes, Pessoas e Horarios.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.smartaccess.app.data.Utilizador
 
+// Titulos dos sub-separadores (a ordem corresponde ao when mais abaixo)
 private val SEPARADORES_GESTAO = listOf("Portas", "Cartoes", "Pessoas", "Horarios")
 
 // So para administradores: portas (Arduinos), cartoes, utilizadores e horarios por perfil

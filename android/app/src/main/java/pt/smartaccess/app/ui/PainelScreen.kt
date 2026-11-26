@@ -1,3 +1,4 @@
+// Separador Painel: resumo no topo e um cartao por porta ativa (o admin pode abrir a distancia).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Dispositivo
 import pt.smartaccess.app.data.Utilizador
 
+// Atualiza a cada 3 s; pede confirmacao antes de abrir uma porta
 @Composable
 fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: PainelViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -82,7 +84,8 @@ fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel:
             text = {
                 Text(
                     "A porta e destrancada e comeca uma aula em seu nome. " +
-                        "Fica aberta ate ser fechada com o cartao de um administrador ou de um funcionario."
+                        "Como foi aberta pela app, fica aberta ate alguem a fechar com um cartao ativo " +
+                        "(docente, funcionario ou administrador)."
                 )
             },
             confirmButton = {
@@ -117,6 +120,7 @@ private fun Resumo(dispositivos: List<Dispositivo>) {
     }
 }
 
+// Quadrado colorido com um numero grande e uma legenda
 @Composable
 private fun Numero(valor: String, rotulo: String, fundo: Color, cor: Color, modifier: Modifier) {
     Surface(color = fundo, contentColor = cor, shape = MaterialTheme.shapes.medium, modifier = modifier) {
@@ -127,6 +131,7 @@ private fun Numero(valor: String, rotulo: String, fundo: Color, cor: Color, modi
     }
 }
 
+// Cartao de uma porta: estado, aula a decorrer, ultimo acesso e botao de abrir (so admin)
 @Composable
 private fun CartaoDispositivo(
     dispositivo: Dispositivo,

@@ -1,3 +1,6 @@
+// Modelos de dados: cada classe corresponde a um objeto JSON enviado ou recebido da API.
+// O Gson converte JSON <-> Kotlin; @SerializedName liga o nome do JSON (snake_case) ao nome em Kotlin.
+// Nos pedidos, os campos a null nao sao enviados (permite alterar so alguns campos num PATCH).
 package pt.smartaccess.app.data
 
 import com.google.gson.annotations.SerializedName
@@ -5,17 +8,21 @@ import com.google.gson.annotations.SerializedName
 // Respostas e pedidos da API (ver api/index.py)
 
 // So o admin tem email (e conta na app); docentes e funcionarios sao so o nome do cartao
+// Pessoa do sistema (GET /api/users, GET /api/me e resposta do login).
 data class Utilizador(
     val id: Long,
     val nome: String,
     val email: String?,
     val perfil: String,
 ) {
+    // true se for o administrador (decide que separadores aparecem na app)
     val admin: Boolean get() = perfil == "admin"
 }
 
+// Corpo do POST /api/auth/login
 data class PedidoLogin(val email: String, val password: String)
 
+// Resposta do login (e do POST /api/setup): token JWT + dados do utilizador
 data class RespostaLogin(val token: String, val utilizador: Utilizador)
 
 // GET /api/setup: no primeiro arranque ainda nao ha administrador
@@ -81,6 +88,7 @@ data class DispositivoGestao(
     val online: Boolean,
 )
 
+// Corpo do PATCH /api/devices/{id}: so os campos preenchidos sao alterados
 data class AlteracaoDispositivo(
     val estado: String? = null,
     val nome: String? = null,
@@ -101,6 +109,7 @@ data class Aula(
     val saidas: Int,
     @SerializedName("entradas_nao_detetadas") val entradasNaoDetetadas: Int,
 ) {
+    // Sem data de fim = a aula ainda esta a decorrer
     val aDecorrer: Boolean get() = fim == null
 }
 
@@ -110,6 +119,7 @@ data class HorariosPerfis(
     val funcionario: List<Permissao>,
 )
 
+// Ultimo acesso a uma porta (vem dentro de GET /api/status)
 data class UltimoAcesso(
     @SerializedName("data_hora") val dataHora: String,
     val resultado: String,
@@ -118,8 +128,10 @@ data class UltimoAcesso(
     val motivo: String?,
 )
 
+// Corpo do POST /api/door/unlock: a porta a abrir
 data class PedidoAbertura(@SerializedName("dispositivo_id") val dispositivoId: Long?)
 
+// Resposta da abertura remota: id do comando criado (para acompanhar) e nome da porta
 data class RespostaAbertura(
     @SerializedName("comando_id") val comandoId: Long,
     val dispositivo: String,
@@ -143,6 +155,7 @@ data class Registo(
     // Ex.: sala fechada com pessoas contadas dentro (saidas nao detetadas)
     val aviso: String? = null,
 ) {
+    // true se o acesso foi aceite
     val concedido: Boolean get() = resultado == "concedido"
 }
 
@@ -171,6 +184,7 @@ data class AlteracaoCartao(
     @SerializedName("utilizador_id") val utilizadorId: Long? = null,
 )
 
+// GET /api/alerts: aviso para o administrador (tipo, descricao, data e porta)
 data class Alerta(
     val id: Long,
     val tipo: String,
@@ -180,4 +194,5 @@ data class Alerta(
     val dispositivo: String?,
 )
 
+// Corpo do PATCH /api/alerts/{id}
 data class AlteracaoAlerta(val resolvido: Boolean)

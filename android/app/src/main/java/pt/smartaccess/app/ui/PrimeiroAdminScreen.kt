@@ -1,3 +1,4 @@
+// Ecra do primeiro arranque: aparece enquanto nao existir administrador (ex.: depois do reset.sql).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.background

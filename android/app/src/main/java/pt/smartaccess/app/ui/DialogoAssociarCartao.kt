@@ -1,3 +1,4 @@
+// Dialogo para associar um cartao a uma pessoa (usado em Cartoes e em Pessoas).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.border
@@ -65,7 +66,9 @@ suspend fun associarCartao(api: SmartAccessApi, uid: String, escolha: EscolhaPes
     }
 }
 
+// UID valido: 8 a 20 caracteres hexadecimais
 private val FORMATO_UID = Regex("^[0-9A-F]{8,20}$")
+// Maximo de pessoas mostradas na pesquisa
 private const val MAX_RESULTADOS = 6
 
 // uidFixo: aprovar um cartao lido numa porta (o UID ja e conhecido); null = escrever o UID
@@ -194,6 +197,7 @@ private fun SeletorPessoa(pessoas: List<Utilizador>, escolha: EscolhaPessoa?, ao
     }
 }
 
+// Pessoa escolhida (com botao Trocar); para uma pessoa nova, escolhe docente ou funcionario
 @Composable
 private fun PessoaEscolhida(escolha: EscolhaPessoa, aoMudarPerfil: (String) -> Unit, aoTrocar: () -> Unit) {
     val perfil = when (escolha) {
@@ -235,6 +239,7 @@ private fun PessoaEscolhida(escolha: EscolhaPessoa, aoMudarPerfil: (String) -> U
     }
 }
 
+// Linha com avatar, nome e perfil
 @Composable
 fun LinhaPessoa(nome: String, perfil: String, modifier: Modifier = Modifier) {
     Row(

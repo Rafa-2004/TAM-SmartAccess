@@ -1,3 +1,4 @@
+// Separador Painel: estado das portas ativas e abertura remota.
 package pt.smartaccess.app.ui
 
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,7 @@ import pt.smartaccess.app.data.PedidoAbertura
 import pt.smartaccess.app.data.SmartAccessApi
 import pt.smartaccess.app.data.mensagemErro
 
+// ViewModel do Painel
 class PainelViewModel(
     private val api: SmartAccessApi = SmartAccessApi.instancia,
 ) : BaseViewModel() {
@@ -18,9 +20,11 @@ class PainelViewModel(
     private val _estado = MutableStateFlow<Carregamento<List<Dispositivo>>>(Carregamento.ACarregar)
     val estado: StateFlow<Carregamento<List<Dispositivo>>> = _estado
 
+    // true enquanto decorre uma abertura remota (desativa os botoes de abrir)
     private val _aAbrir = MutableStateFlow(false)
     val aAbrir: StateFlow<Boolean> = _aAbrir
 
+    // Portas ativas (GET /api/status)
     override suspend fun atualizar() {
         _estado.carregarDe { api.estado() }
     }

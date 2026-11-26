@@ -1,3 +1,4 @@
+// Gestao > Cartoes: lista de cartoes RFID, filtros e acoes.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Cartao
 
+// Filtros da lista (estado = null mostra todos)
 private enum class FiltroCartoes(val titulo: String, val estado: String?) {
     TODOS("Todos", null),
     PENDENTES("Por aprovar", "pendente"),
@@ -53,6 +55,7 @@ private enum class FiltroCartoes(val titulo: String, val estado: String?) {
 // Cartao a associar: um pendente (UID conhecido) ou um novo escrito a mao
 private data class AAssociar(val pendente: Cartao?)
 
+// Pesquisa, filtros, lista, botao 'Adicionar cartao' e dialogos (atualiza a cada 15 s)
 @Composable
 fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -190,6 +193,7 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
     }
 }
 
+// Etiqueta colorida com o estado do cartao
 @Composable
 fun EtiquetaEstadoCartao(estado: String) {
     val c = MaterialTheme.colorScheme
@@ -200,6 +204,7 @@ fun EtiquetaEstadoCartao(estado: String) {
     }
 }
 
+// Cartao da lista: UID, dono, estado, horario em vigor e botoes do estado
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CartaoItem(

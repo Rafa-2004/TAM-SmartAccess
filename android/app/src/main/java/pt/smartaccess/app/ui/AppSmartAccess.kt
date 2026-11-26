@@ -1,3 +1,4 @@
+// Raiz da interface: arranque, login / primeiro administrador e o ecra principal com separadores.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import pt.smartaccess.app.data.Utilizador
 
+// Mostra o ecra certo conforme a sessao (o Compose redesenha sozinho quando a sessao muda)
 @Composable
 fun AppSmartAccess(sessaoViewModel: SessaoViewModel = viewModel()) {
     val sessao by sessaoViewModel.sessao.collectAsStateWithLifecycle()
@@ -55,6 +57,7 @@ fun AppSmartAccess(sessaoViewModel: SessaoViewModel = viewModel()) {
     }
 }
 
+// Separadores da barra de baixo; soAdmin = so aparece ao administrador
 private enum class Separador(val titulo: String, val icone: ImageVector, val soAdmin: Boolean) {
     PAINEL("Painel", Icons.Default.Home, false),
     AULAS("Aulas", Icons.Default.DateRange, false),
@@ -63,6 +66,7 @@ private enum class Separador(val titulo: String, val icone: ImageVector, val soA
     ALERTAS("Alertas", Icons.Default.Warning, true),
 }
 
+// Ecra principal: barra de topo (titulo, utilizador, Sair), barra de separadores e o separador ativo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EcraPrincipal(utilizador: Utilizador, aoSair: () -> Unit) {

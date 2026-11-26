@@ -1,3 +1,4 @@
+// Gestao > Cartoes: associar, revogar, reativar, apagar cartoes e horario proprio.
 package pt.smartaccess.app.ui
 
 import kotlinx.coroutines.CancellationException
@@ -9,6 +10,7 @@ import pt.smartaccess.app.data.Permissao
 import pt.smartaccess.app.data.SmartAccessApi
 import pt.smartaccess.app.data.Utilizador
 
+// ViewModel de Gestao > Cartoes
 class CartoesViewModel(
     private val api: SmartAccessApi = SmartAccessApi.instancia,
 ) : BaseViewModel() {
@@ -19,6 +21,7 @@ class CartoesViewModel(
     private val _utilizadores = MutableStateFlow<List<Utilizador>>(emptyList())
     val utilizadores: StateFlow<List<Utilizador>> = _utilizadores
 
+    // Cartoes e pessoas (as pessoas sao precisas no dialogo de associar)
     override suspend fun atualizar() {
         _estado.carregarDe { api.cartoes() }
         try {
@@ -36,21 +39,25 @@ class CartoesViewModel(
             associarCartao(api, uid, escolha, pendente?.id)
         }
 
+    // O cartao deixa de abrir portas
     fun revogar(cartao: Cartao) =
         executar("Cartao ${cartao.uid} revogado") {
             api.alterarCartao(cartao.id, AlteracaoCartao(estado = "revogado"))
         }
 
+    // O cartao volta a funcionar
     fun reativar(cartao: Cartao) =
         executar("Cartao ${cartao.uid} reativado") {
             api.alterarCartao(cartao.id, AlteracaoCartao(estado = "ativo"))
         }
 
+    // Apaga o cartao (o historico guarda so o UID)
     fun apagar(cartao: Cartao) =
         executar("Cartao ${cartao.uid} apagado") {
             api.apagarCartao(cartao.id)
         }
 
+    // Horario proprio do cartao (substitui o do perfil)
     fun guardarHorarios(cartao: Cartao, permissoes: List<Permissao>) =
         executar("Horario guardado") {
             api.definirPermissoes(cartao.id, permissoes)

@@ -1,3 +1,4 @@
+// Separador Aulas: lista das aulas (a decorrer e terminadas).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Aula
 import pt.smartaccess.app.data.Utilizador
 
+// Lista das aulas, atualizada a cada 10 s
 @Composable
 fun AulasScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: AulasViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -53,6 +55,7 @@ fun AulasScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: 
     }
 }
 
+// Cartao de uma aula: dono, porta, inicio/fim, entradas/saidas e como fechou
 @Composable
 private fun CartaoAula(aula: Aula) {
     val c = MaterialTheme.colorScheme
@@ -107,6 +110,7 @@ private fun CartaoAula(aula: Aula) {
     }
 }
 
+// Caixa com um numero e uma legenda (Entradas / Saidas)
 @Composable
 private fun Contador(rotulo: String, valor: Int, modifier: Modifier) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.small, modifier = modifier) {

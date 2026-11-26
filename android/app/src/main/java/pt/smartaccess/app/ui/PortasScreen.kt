@@ -1,3 +1,4 @@
+// Gestao > Portas: lista dos Arduinos registados e acoes sobre cada um.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import pt.smartaccess.app.data.DispositivoGestao
 
 private const val MAX_NOME = 16   // o LCD do Arduino so tem 16 colunas
 
+// Lista de portas (atualizada a cada 10 s) e os dialogos de aprovar, mudar nome, revogar e apagar
 @Composable
 fun PortasScreen(snackbar: SnackbarHostState, viewModel: PortasViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -145,6 +147,7 @@ fun PortasScreen(snackbar: SnackbarHostState, viewModel: PortasViewModel) {
     }
 }
 
+// Cartao de uma porta com os botoes do seu estado
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CartaoPorta(
@@ -203,6 +206,7 @@ private fun CartaoPorta(
     }
 }
 
+// Dialogo com o nome da sala (maximo 16 caracteres, a largura do LCD)
 @Composable
 private fun DialogoNome(
     titulo: String,

@@ -1,3 +1,4 @@
+// Separador Registos: filtros e lista dos acessos (concedidos e negados).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -32,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Registo
 import pt.smartaccess.app.data.Utilizador
 
+// Filtros (periodo, resultado, pessoa) e lista de registos, atualizada a cada 10 s
 @Composable
 fun RegistosScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: RegistosViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -94,6 +96,7 @@ fun RegistosScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewMode
     }
 }
 
+// Chip que abre um menu para filtrar por pessoa
 @Composable
 private fun FiltroUtilizador(
     selecionado: Utilizador?,
@@ -122,6 +125,7 @@ private fun FiltroUtilizador(
     }
 }
 
+// Uma linha da lista: quem, quando, onde, motivo, resultado e aviso (se houver)
 @Composable
 private fun LinhaRegisto(registo: Registo) {
     val detalhes = buildList {

@@ -1,3 +1,4 @@
+// Gestao > Pessoas: lista de pessoas (docentes, funcionarios e o administrador) e acoes.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -52,6 +53,7 @@ import pt.smartaccess.app.data.Cartao
 import pt.smartaccess.app.data.NovoUtilizador
 import pt.smartaccess.app.data.Utilizador
 
+// Pesquisa, filtros por perfil, lista, botao 'Nova pessoa' e dialogos (atualiza a cada 30 s)
 @Composable
 fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: UtilizadoresViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -180,6 +182,7 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
     }
 }
 
+// Cartao de uma pessoa: nome, perfil, os seus cartoes e botoes
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CartaoPessoa(
@@ -241,6 +244,7 @@ private fun CartaoPessoa(
     }
 }
 
+// Botoes de opcao para escolher o perfil
 @Composable
 private fun EscolhaPerfil(escolhido: String, aoEscolher: (String) -> Unit) {
     // So existe um administrador: nao se pode criar outro nem promover ninguem a admin
@@ -263,6 +267,7 @@ private fun EscolhaPerfil(escolhido: String, aoEscolher: (String) -> Unit) {
 }
 
 // Email e palavra-passe do login na app: so para administradores
+// (Ja nao e alcancavel: o perfil admin deixou de ser opcao, so existe um administrador)
 @Composable
 private fun CamposConta(email: String, password: String, aoMudarEmail: (String) -> Unit, aoMudarPassword: (String) -> Unit) {
     Spacer(Modifier.height(8.dp))
@@ -283,6 +288,7 @@ private fun CamposConta(email: String, password: String, aoMudarEmail: (String) 
     )
 }
 
+// Email com @ e palavra-passe com 6 ou mais caracteres
 private fun contaValida(email: String, password: String) = "@" in email && password.length >= 6
 
 // Passar a administrador pede email e palavra-passe se a pessoa ainda nao tem conta;
@@ -327,6 +333,7 @@ private fun DialogoPerfil(utilizador: Utilizador, aoFechar: () -> Unit, aoGuarda
     )
 }
 
+// Dialogo para criar uma pessoa (nome + perfil)
 @Composable
 private fun DialogoNovoUtilizador(aoFechar: () -> Unit, aoCriar: (NovoUtilizador) -> Unit) {
     var nome by remember { mutableStateOf("") }

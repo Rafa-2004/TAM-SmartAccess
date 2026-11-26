@@ -1,3 +1,4 @@
+// Dialogo de horario semanal (horario proprio de um cartao ou horario de um perfil).
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.layout.Column
@@ -24,8 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import pt.smartaccess.app.data.Permissao
 
+// Estado de um dia no dialogo: selecionado, hora de inicio e hora de fim
 private data class LinhaHorario(val ativo: Boolean, val inicio: String, val fim: String)
 
+// Hora valida: HH:MM entre 00:00 e 23:59
 private val FORMATO_HORA = Regex("^([01]\\d|2[0-3]):[0-5]\\d$")
 
 // Uma janela por dia da semana (se houver varias no mesmo dia, so a primeira e editada).
@@ -86,6 +89,7 @@ fun DialogoHorarios(
     )
 }
 
+// Campo de hora HH:MM (desativado se o dia nao estiver selecionado)
 @Composable
 private fun CampoHora(valor: String, ativo: Boolean, aoMudar: (String) -> Unit) {
     OutlinedTextField(

@@ -1,3 +1,4 @@
+// Separador Alertas: avisos para o administrador.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.background
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pt.smartaccess.app.data.Alerta
 
+// Lista de alertas, atualizada a cada 10 s
 @Composable
 fun AlertasScreen(snackbar: SnackbarHostState, viewModel: AlertasViewModel) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
@@ -55,6 +57,7 @@ fun AlertasScreen(snackbar: SnackbarHostState, viewModel: AlertasViewModel) {
     }
 }
 
+// Tipo do alerta -> titulo para mostrar
 private fun tituloAlerta(tipo: String): String = when (tipo) {
     "tentativas_negadas" -> "Tentativas de acesso negadas"
     "dispositivo_offline" -> "Porta sem contacto"
@@ -64,6 +67,7 @@ private fun tituloAlerta(tipo: String): String = when (tipo) {
     else -> tipo
 }
 
+// Cartao de um alerta com o botao Resolver
 @Composable
 private fun CartaoAlerta(alerta: Alerta, aoResolver: () -> Unit) {
     val c = MaterialTheme.colorScheme

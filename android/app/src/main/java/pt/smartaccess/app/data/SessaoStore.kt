@@ -1,3 +1,4 @@
+// Guarda a sessao (token + utilizador) no telemovel, para nao ser preciso fazer login sempre.
 package pt.smartaccess.app.data
 
 import android.content.Context
@@ -8,13 +9,16 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+// Ficheiro de preferencias 'sessao', privado da app (sobrevive a fechar a app)
 private val Context.dataStore by preferencesDataStore(name = "sessao")
 
+// O que fica guardado: token JWT e o utilizador
 data class DadosSessao(val token: String, val utilizador: Utilizador)
 
 // Guarda o token e o utilizador autenticado entre arranques da app
 class SessaoStore(private val context: Context) {
 
+    // Emite a sessao guardada sempre que muda (null se nao houver token = sem sessao)
     val dados: Flow<DadosSessao?> = context.dataStore.data.map { p ->
         val token = p[TOKEN] ?: return@map null
         DadosSessao(
@@ -28,6 +32,7 @@ class SessaoStore(private val context: Context) {
         )
     }
 
+    // Guarda a sessao (depois do login ou da criacao do administrador)
     suspend fun guardar(sessao: DadosSessao) {
         context.dataStore.edit { p ->
             p[TOKEN] = sessao.token
@@ -38,10 +43,12 @@ class SessaoStore(private val context: Context) {
         }
     }
 
+    // Apaga a sessao (logout)
     suspend fun limpar() {
         context.dataStore.edit { it.clear() }
     }
 
+    // Chaves usadas no ficheiro de preferencias
     private companion object {
         val TOKEN = stringPreferencesKey("token")
         val ID = longPreferencesKey("id")

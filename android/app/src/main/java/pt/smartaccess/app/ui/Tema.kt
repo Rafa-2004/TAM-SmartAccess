@@ -1,3 +1,4 @@
+// Tema visual da app: cores (modo claro e escuro) e formas dos cantos.
 package pt.smartaccess.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -42,6 +43,7 @@ private val Claro = lightColorScheme(
     outlineVariant = Color(0xFFD9DEE8),
 )
 
+// As mesmas cores adaptadas ao modo escuro
 private val Escuro = darkColorScheme(
     primary = Color(0xFF9DB4FF),
     onPrimary = Color(0xFF0B1E5B),
@@ -73,6 +75,7 @@ private val Escuro = darkColorScheme(
     outlineVariant = Color(0xFF2F3849),
 )
 
+// Raio dos cantos arredondados (cartoes, dialogos, botoes)
 private val Formas = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
@@ -81,6 +84,7 @@ private val Formas = Shapes(
     extraLarge = RoundedCornerShape(28.dp),
 )
 
+// Aplica o tema: paleta escura se o telemovel estiver em modo escuro, senao a clara
 @Composable
 fun TemaSmartAccess(conteudo: @Composable () -> Unit) {
     MaterialTheme(
