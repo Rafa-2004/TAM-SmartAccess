@@ -20,6 +20,7 @@ class SessaoStore(private val context: Context) {
 
     // Emite a sessao guardada sempre que muda (null se nao houver token = sem sessao)
     val dados: Flow<DadosSessao?> = context.dataStore.data.map { p ->
+        // Sem token guardado = sem sessao (devolve null)
         val token = p[TOKEN] ?: return@map null
         DadosSessao(
             token = token,
@@ -34,6 +35,7 @@ class SessaoStore(private val context: Context) {
 
     // Guarda a sessao (depois do login ou da criacao do administrador)
     suspend fun guardar(sessao: DadosSessao) {
+        // edit: escreve no ficheiro de forma segura (ou fica tudo gravado ou nada)
         context.dataStore.edit { p ->
             p[TOKEN] = sessao.token
             p[ID] = sessao.utilizador.id
@@ -45,6 +47,7 @@ class SessaoStore(private val context: Context) {
 
     // Apaga a sessao (logout)
     suspend fun limpar() {
+        // Apaga todas as chaves
         context.dataStore.edit { it.clear() }
     }
 

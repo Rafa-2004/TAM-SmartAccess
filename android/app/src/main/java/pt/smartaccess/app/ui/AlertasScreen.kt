@@ -35,20 +35,28 @@ import pt.smartaccess.app.data.Alerta
 // Lista de alertas, atualizada a cada 10 s
 @Composable
 fun AlertasScreen(snackbar: SnackbarHostState, viewModel: AlertasViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(10_000) { viewModel.atualizar() }
 
+    // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+    // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
     ConteudoCarregado(estado, viewModel::recarregar) { alertas ->
         if (alertas.isEmpty()) {
             EstadoVazio(Icons.Default.CheckCircle, "Sem alertas", "Esta tudo em ordem.")
         } else {
+            // Lista com scroll: so desenha os elementos visiveis no ecra (rapido mesmo com listas grandes)
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                 items(alertas, key = { it.id }) { alerta ->
                     CartaoAlerta(alerta, aoResolver = { viewModel.resolver(alerta) })
                 }
@@ -70,6 +78,7 @@ private fun tituloAlerta(tipo: String): String = when (tipo) {
 // Cartao de um alerta com o botao Resolver
 @Composable
 private fun CartaoAlerta(alerta: Alerta, aoResolver: () -> Unit) {
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
     // Porta nova e um aviso (ambar); o resto sao problemas (vermelho)
     val (fundo, cor) = when {

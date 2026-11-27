@@ -41,6 +41,8 @@ fun DialogoHorarios(
     aoFechar: () -> Unit,
     aoGuardar: (List<Permissao>) -> Unit,
 ) {
+    // As 7 linhas (segunda a domingo), preenchidas com o horario atual;
+    // os dias sem janela comecam desmarcados, com 08:00-20:00 por omissao
     val linhas = remember {
         mutableStateListOf<LinhaHorario>().apply {
             for (dia in 1..7) {
@@ -52,6 +54,7 @@ fun DialogoHorarios(
     var erro by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
+        // Tocar fora do dialogo ou no botao 'voltar' do telemovel
         onDismissRequest = aoFechar,
         title = { Text(titulo) },
         text = {
@@ -72,19 +75,24 @@ fun DialogoHorarios(
                 erro?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
+        // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
         confirmButton = {
             TextButton(onClick = {
+                // So os dias selecionados (com o indice do dia)
                 val ativas = linhas.withIndex().filter { it.value.ativo }
+                // Primeiro dia com a hora mal escrita ou o fim antes do inicio
                 val invalida = ativas.firstOrNull { (_, l) ->
                     !FORMATO_HORA.matches(l.inicio) || !FORMATO_HORA.matches(l.fim) || l.fim <= l.inicio
                 }
                 if (invalida != null) {
                     erro = "${DIAS_SEMANA[invalida.index]}: use HH:MM e um fim depois do inicio"
                 } else {
+                    // Converte as linhas em Permissao (indice 0 -> dia 1 = segunda) e devolve-as
                     aoGuardar(ativas.map { (i, l) -> Permissao(i + 1, l.inicio, l.fim) })
                 }
             }) { Text("Guardar") }
         },
+        // Botao Cancelar: so fecha o dialogo
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }

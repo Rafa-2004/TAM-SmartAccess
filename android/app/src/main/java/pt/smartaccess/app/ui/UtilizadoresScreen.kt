@@ -56,20 +56,36 @@ import pt.smartaccess.app.data.Utilizador
 // Pesquisa, filtros por perfil, lista, botao 'Nova pessoa' e dialogos (atualiza a cada 30 s)
 @Composable
 fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: UtilizadoresViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val cartoes by viewModel.cartoes.collectAsStateWithLifecycle()
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aCriar by remember { mutableStateOf(false) }
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aMudarPerfil by remember { mutableStateOf<Utilizador?>(null) }
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aAssociar by remember { mutableStateOf<Utilizador?>(null) }
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aRemover by remember { mutableStateOf<Utilizador?>(null) }
+    // Texto da pesquisa (rememberSaveable: mantem-se mesmo ao rodar o ecra)
     var pesquisa by rememberSaveable { mutableStateOf("") }
     var perfilFiltro by rememberSaveable { mutableStateOf<String?>(null) }
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(30_000) { viewModel.atualizar() }
 
     Box(Modifier.fillMaxSize()) {
+        // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+        // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
         ConteudoCarregado(estado, viewModel::recarregar) { utilizadores ->
+            // Aplica o filtro escolhido e o texto da pesquisa (contem() ignora acentos e maiusculas)
             val visiveis = utilizadores.filter {
                 (perfilFiltro == null || it.perfil == perfilFiltro) && (pesquisa.isBlank() || contem(it.nome, pesquisa))
             }
@@ -98,18 +114,23 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
                         "Use \"Nova pessoa\" para criar um docente ou funcionario.",
                     )
                 } else {
+                    // Lista com scroll: so desenha os elementos visiveis no ecra (rapido mesmo com listas grandes)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 96.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                         items(visiveis, key = { it.id }) { u ->
                             CartaoPessoa(
                                 pessoa = u,
                                 cartoes = cartoes.filter { it.utilizadorId == u.id },
                                 souEu = u.id == eu.id,
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoAssociar = { aAssociar = u },
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoMudarPerfil = { aMudarPerfil = u },
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoRemover = { aRemover = u },
                             )
                         }
@@ -117,15 +138,19 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
                 }
             }
 
+            // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
             aAssociar?.let { pessoa ->
                 DialogoAssociarCartao(
                     titulo = "Associar cartao",
                     uidFixo = null,
                     pessoas = utilizadores,
                     pessoaInicial = pessoa,
+                    // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                     aoFechar = { aAssociar = null },
                     aoConfirmar = { uid, escolha ->
+                        // Chama a acao no ViewModel (que faz o pedido a API)
                         viewModel.associar(uid, escolha)
+                        // Fecha o dialogo
                         aAssociar = null
                     },
                 )
@@ -141,17 +166,21 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
 
     if (aCriar) {
         DialogoNovoUtilizador(
+            // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
             aoFechar = { aCriar = false },
             aoCriar = {
+                // Chama a acao no ViewModel (que faz o pedido a API)
                 viewModel.criar(it)
                 aCriar = false
             },
         )
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aRemover?.let { u ->
         val ativos = cartoes.count { it.utilizadorId == u.id && it.estado == "ativo" }
         AlertDialog(
+            // Tocar fora do dialogo ou no botao 'voltar' do telemovel
             onDismissRequest = { aRemover = null },
             title = { Text("Remover ${u.nome}?") },
             text = {
@@ -160,22 +189,30 @@ fun UtilizadoresScreen(eu: Utilizador, snackbar: SnackbarHostState, viewModel: U
                         "A pessoa deixa de aparecer na lista, mas o historico de acessos e aulas continua a mostrar o nome."
                 )
             },
+            // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
             confirmButton = {
                 TextButton(onClick = {
+                    // Chama a acao no ViewModel (que faz o pedido a API)
                     viewModel.remover(u)
+                    // Fecha o dialogo
                     aRemover = null
                 }) { Text("Remover", color = MaterialTheme.colorScheme.error) }
             },
+            // Botao Cancelar: so fecha o dialogo
             dismissButton = { TextButton(onClick = { aRemover = null }) { Text("Cancelar") } },
         )
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aMudarPerfil?.let { u ->
         DialogoPerfil(
             utilizador = u,
+            // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
             aoFechar = { aMudarPerfil = null },
             aoGuardar = {
+                // Chama a acao no ViewModel (que faz o pedido a API)
                 viewModel.mudarPerfil(u, it)
+                // Fecha o dialogo
                 aMudarPerfil = null
             },
         )
@@ -216,6 +253,7 @@ private fun CartaoPessoa(
                 color = MaterialTheme.colorScheme.error,
             )
         } else {
+            // FlowRow: como Row, mas passa os botoes para a linha seguinte quando nao cabem
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 cartoes.forEach { c ->
                     val cor = when (c.estado) {
@@ -229,6 +267,7 @@ private fun CartaoPessoa(
         }
 
         Spacer(Modifier.height(12.dp))
+        // FlowRow: como Row, mas passa os botoes para a linha seguinte quando nao cabem
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = aoAssociar) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -302,6 +341,7 @@ private fun DialogoPerfil(utilizador: Utilizador, aoFechar: () -> Unit, aoGuarda
     val valido = perfil != utilizador.perfil && (!precisaConta || contaValida(email, password))
 
     AlertDialog(
+        // Tocar fora do dialogo ou no botao 'voltar' do telemovel
         onDismissRequest = aoFechar,
         title = { Text("Perfil de ${utilizador.nome}") },
         text = {
@@ -318,6 +358,7 @@ private fun DialogoPerfil(utilizador: Utilizador, aoFechar: () -> Unit, aoGuarda
                 }
             }
         },
+        // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
         confirmButton = {
             TextButton(
                 onClick = {
@@ -329,6 +370,7 @@ private fun DialogoPerfil(utilizador: Utilizador, aoFechar: () -> Unit, aoGuarda
                 enabled = valido,
             ) { Text("Guardar") }
         },
+        // Botao Cancelar: so fecha o dialogo
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }
@@ -344,6 +386,7 @@ private fun DialogoNovoUtilizador(aoFechar: () -> Unit, aoCriar: (NovoUtilizador
     val valido = nome.isNotBlank() && (!admin || contaValida(email, password))
 
     AlertDialog(
+        // Tocar fora do dialogo ou no botao 'voltar' do telemovel
         onDismissRequest = aoFechar,
         title = { Text("Nova pessoa") },
         text = {
@@ -362,6 +405,7 @@ private fun DialogoNovoUtilizador(aoFechar: () -> Unit, aoCriar: (NovoUtilizador
                 }
             }
         },
+        // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
         confirmButton = {
             TextButton(
                 onClick = {
@@ -373,6 +417,7 @@ private fun DialogoNovoUtilizador(aoFechar: () -> Unit, aoCriar: (NovoUtilizador
                 enabled = valido,
             ) { Text("Criar") }
         },
+        // Botao Cancelar: so fecha o dialogo
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }

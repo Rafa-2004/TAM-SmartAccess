@@ -28,12 +28,20 @@ import pt.smartaccess.app.data.Permissao
 // Um cartao por perfil e o dialogo de edicao (atualiza a cada 60 s)
 @Composable
 fun HorariosScreen(snackbar: SnackbarHostState, viewModel: HorariosViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aEditar by remember { mutableStateOf<Pair<String, List<Permissao>>?>(null) }
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(60_000) { viewModel.atualizar() }
 
+    // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+    // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
     ConteudoCarregado(estado, viewModel::recarregar) { horarios ->
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -50,14 +58,18 @@ fun HorariosScreen(snackbar: SnackbarHostState, viewModel: HorariosViewModel) {
         }
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aEditar?.let { (perfil, horario) ->
         DialogoHorarios(
             titulo = "Horario: ${textoPerfil(perfil)}",
             permissoes = horario,
             aviso = if (perfil == "funcionario") "Normalmente mais alargado do que o do docente." else null,
+            // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
             aoFechar = { aEditar = null },
             aoGuardar = {
+                // Chama a acao no ViewModel (que faz o pedido a API)
                 viewModel.guardar(perfil, it)
+                // Fecha o dialogo
                 aEditar = null
             },
         )

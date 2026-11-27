@@ -58,21 +58,35 @@ private data class AAssociar(val pendente: Cartao?)
 // Pesquisa, filtros, lista, botao 'Adicionar cartao' e dialogos (atualiza a cada 15 s)
 @Composable
 fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val utilizadores by viewModel.utilizadores.collectAsStateWithLifecycle()
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aAssociar by remember { mutableStateOf<AAssociar?>(null) }
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aRevogar by remember { mutableStateOf<Cartao?>(null) }
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aApagar by remember { mutableStateOf<Cartao?>(null) }
     var horarios by remember { mutableStateOf<Cartao?>(null) }
     var filtro by rememberSaveable { mutableStateOf(FiltroCartoes.TODOS) }
+    // Texto da pesquisa (rememberSaveable: mantem-se mesmo ao rodar o ecra)
     var pesquisa by rememberSaveable { mutableStateOf("") }
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(15_000) { viewModel.atualizar() }
 
     Box(Modifier.fillMaxSize()) {
+        // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+        // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
         ConteudoCarregado(estado, viewModel::recarregar) { cartoes ->
             val pendentes = cartoes.count { it.estado == "pendente" }
+            // Aplica o filtro escolhido e o texto da pesquisa (contem() ignora acentos e maiusculas)
             val visiveis = cartoes.filter {
                 (filtro.estado == null || it.estado == filtro.estado) &&
                     (pesquisa.isBlank() || contem(it.uid, pesquisa) || contem(it.utilizador, pesquisa))
@@ -107,14 +121,18 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
                         contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 96.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                         items(visiveis, key = { it.id }) { cartao ->
                             CartaoItem(
                                 cartao = cartao,
                                 donoPerfil = cartao.utilizadorPerfil,
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoAprovar = { aAssociar = AAssociar(cartao) },
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoRevogar = { aRevogar = cartao },
                                 aoReativar = { viewModel.reativar(cartao) },
                                 aoEditarHorarios = { horarios = cartao },
+                                // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                                 aoApagar = { aApagar = cartao },
                             )
                         }
@@ -130,37 +148,49 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
         )
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aAssociar?.let { pedido ->
         DialogoAssociarCartao(
             titulo = if (pedido.pendente != null) "Aprovar cartao" else "Adicionar cartao",
             uidFixo = pedido.pendente?.uid,
             pessoas = utilizadores,
             pessoaInicial = null,
+            // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
             aoFechar = { aAssociar = null },
             aoConfirmar = { uid, escolha ->
+                // Chama a acao no ViewModel (que faz o pedido a API)
                 viewModel.associar(uid, escolha, pedido.pendente)
+                // Fecha o dialogo
                 aAssociar = null
             },
         )
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aRevogar?.let { cartao ->
         AlertDialog(
+            // Tocar fora do dialogo ou no botao 'voltar' do telemovel
             onDismissRequest = { aRevogar = null },
             title = { Text("Revogar cartao?") },
             text = { Text("O cartao ${cartao.uid} (${cartao.utilizador}) deixa de abrir as portas imediatamente.") },
+            // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
             confirmButton = {
                 TextButton(onClick = {
+                    // Chama a acao no ViewModel (que faz o pedido a API)
                     viewModel.revogar(cartao)
+                    // Fecha o dialogo
                     aRevogar = null
                 }) { Text("Revogar") }
             },
+            // Botao Cancelar: so fecha o dialogo
             dismissButton = { TextButton(onClick = { aRevogar = null }) { Text("Cancelar") } },
         )
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aApagar?.let { cartao ->
         AlertDialog(
+            // Tocar fora do dialogo ou no botao 'voltar' do telemovel
             onDismissRequest = { aApagar = null },
             title = { Text("Apagar cartao?") },
             text = {
@@ -169,12 +199,16 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
                         "O historico de acessos mantem-se. Se o cartao voltar a ser passado numa porta, aparece de novo como \"Por aprovar\"."
                 )
             },
+            // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
             confirmButton = {
                 TextButton(onClick = {
+                    // Chama a acao no ViewModel (que faz o pedido a API)
                     viewModel.apagar(cartao)
+                    // Fecha o dialogo
                     aApagar = null
                 }) { Text("Apagar", color = MaterialTheme.colorScheme.error) }
             },
+            // Botao Cancelar: so fecha o dialogo
             dismissButton = { TextButton(onClick = { aApagar = null }) { Text("Cancelar") } },
         )
     }
@@ -186,6 +220,7 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
             aviso = "Horario proprio deste cartao. Sem nenhum dia marcado, o cartao usa o horario do perfil do dono.",
             aoFechar = { horarios = null },
             aoGuardar = {
+                // Chama a acao no ViewModel (que faz o pedido a API)
                 viewModel.guardarHorarios(cartao, it)
                 horarios = null
             },
@@ -196,6 +231,7 @@ fun CartoesScreen(snackbar: SnackbarHostState, viewModel: CartoesViewModel) {
 // Etiqueta colorida com o estado do cartao
 @Composable
 fun EtiquetaEstadoCartao(estado: String) {
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
     when (estado) {
         "ativo" -> Etiqueta("Ativo", c.secondaryContainer, c.onSecondaryContainer)
@@ -216,6 +252,7 @@ private fun CartaoItem(
     aoEditarHorarios: () -> Unit,
     aoApagar: () -> Unit,
 ) {
+    // Cartao branco de lista (Componentes.kt); 'destaque' pinta o fundo (ex.: ambar para os pendentes)
     CartaoLista(destaque = if (cartao.estado == "pendente") MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f) else null) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(cartao.utilizador ?: "?", donoPerfil)
@@ -249,6 +286,7 @@ private fun CartaoItem(
         )
 
         Spacer(Modifier.height(12.dp))
+        // FlowRow: como Row, mas passa os botoes para a linha seguinte quando nao cabem
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (cartao.estado) {
                 "pendente" -> Button(onClick = aoAprovar) { Text("Associar a alguem") }

@@ -31,6 +31,7 @@ class RegistosViewModel(
     private val api: SmartAccessApi = SmartAccessApi.instancia,
 ) : BaseViewModel() {
 
+    // Estado do ecra. _estado (com _) so pode ser alterado aqui dentro; o ecra le 'estado' (so leitura).
     private val _estado = MutableStateFlow<Carregamento<List<Registo>>>(Carregamento.ACarregar)
     val estado: StateFlow<Carregamento<List<Registo>>> = _estado
 
@@ -42,9 +43,12 @@ class RegistosViewModel(
 
     // Converte os filtros em parametros (desde = hoje menos N dias) e pede os registos
     override suspend fun atualizar() {
+        // Filtros atuais
         val f = _filtros.value
+        // Pede os dados a API e guarda-os no estado (se falhar e ja havia dados, mantem-nos no ecra)
         _estado.carregarDe {
             api.registos(
+                // Data de inicio (hoje menos N dias); 'Tudo' (dias = null) nao envia data
                 desde = f.periodo.dias?.let { LocalDate.now().minusDays(it).toString() },
                 utilizadorId = f.utilizador?.id,
                 resultado = f.resultado,
@@ -55,16 +59,20 @@ class RegistosViewModel(
     // Novo filtro: mostra a roda de carregamento e volta a pedir
     fun alterarFiltros(novos: FiltrosRegistos) {
         _filtros.value = novos
+        // Mostra a roda enquanto carrega com os filtros novos
         _estado.value = Carregamento.ACarregar
         recarregar()
     }
 
     // Lista de pessoas para o filtro (so e carregada uma vez)
     fun carregarUtilizadores() {
+        // Ja carregada: nao pede outra vez
         if (_utilizadores.value.isNotEmpty()) return
+        // Coroutine: corre em segundo plano sem congelar o ecra; e cancelada se o ViewModel for destruido
         viewModelScope.launch {
             try {
                 _utilizadores.value = api.utilizadores()
+            // Cancelamento da coroutine (ex.: ecra fechado): deixa passar, nao e um erro para mostrar
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

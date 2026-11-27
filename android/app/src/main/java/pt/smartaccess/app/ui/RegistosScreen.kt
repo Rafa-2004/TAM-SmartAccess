@@ -36,11 +36,15 @@ import pt.smartaccess.app.data.Utilizador
 // Filtros (periodo, resultado, pessoa) e lista de registos, atualizada a cada 10 s
 @Composable
 fun RegistosScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: RegistosViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val filtros by viewModel.filtros.collectAsStateWithLifecycle()
     val utilizadores by viewModel.utilizadores.collectAsStateWithLifecycle()
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(10_000) { viewModel.atualizar() }
     if (utilizador.admin) {
         LaunchedEffect(Unit) { viewModel.carregarUtilizadores() }
@@ -76,16 +80,21 @@ fun RegistosScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewMode
             }
             if (utilizador.admin) {
                 FiltroUtilizador(filtros.utilizador, utilizadores) {
+                    // Chama a acao no ViewModel (que faz o pedido a API)
                     viewModel.alterarFiltros(filtros.copy(utilizador = it))
                 }
             }
         }
 
+        // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+        // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
         ConteudoCarregado(estado, viewModel::recarregar) { registos ->
             if (registos.isEmpty()) {
                 EstadoVazio(Icons.AutoMirrored.Filled.List, "Sem registos", "Experimente outro periodo ou filtro.")
             } else {
+                // Lista com scroll: so desenha os elementos visiveis no ecra (rapido mesmo com listas grandes)
                 LazyColumn(Modifier.fillMaxSize()) {
+                    // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                     items(registos, key = { it.id }) { registo ->
                         LinhaRegisto(registo)
                         HorizontalDivider()
@@ -138,6 +147,7 @@ private fun LinhaRegisto(registo: Registo) {
             add(if (registo.entradas > 0) "${registo.entradas} entrada(s) na aula" else "sem entradas detetadas")
         }
     }
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
     ListItem(
         leadingContent = { Avatar(registo.utilizador ?: "?", perfil = null, tamanho = 40.dp) },

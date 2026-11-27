@@ -44,13 +44,22 @@ import pt.smartaccess.app.data.Utilizador
 // Atualiza a cada 3 s; pede confirmacao antes de abrir uma porta
 @Composable
 fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: PainelViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    // true enquanto decorre uma abertura (desativa o botao)
     val aAbrir by viewModel.aAbrir.collectAsStateWithLifecycle()
+    // Estado so deste ecra: vazio (null/false) = dialogo fechado; com valor = o dialogo aparece.
+    // remember: o valor mantem-se entre redesenhos; mutableStateOf: mudar o valor redesenha o ecra.
     var aConfirmar by remember { mutableStateOf<Dispositivo?>(null) }
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(3_000) { viewModel.atualizar() }
 
+    // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+    // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
     ConteudoCarregado(estado, viewModel::recarregar) { dispositivos ->
         if (dispositivos.isEmpty()) {
             EstadoVazio(
@@ -58,17 +67,22 @@ fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel:
                 if (utilizador.admin) "Ligue um Arduino e aprove-o em Gestao > Portas." else null,
             )
         } else {
+            // Lista com scroll: so desenha os elementos visiveis no ecra (rapido mesmo com listas grandes)
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Primeiro elemento da lista: os 3 numeros do resumo
                 item { Resumo(dispositivos) }
+                // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                 items(dispositivos, key = { it.id }) { dispositivo ->
                     CartaoDispositivo(
                         dispositivo = dispositivo,
+                        // So o administrador ve o botao de abrir
                         podeAbrir = utilizador.admin,
                         aAbrir = aAbrir,
+                        // Callback: carregar neste botao so guarda o item na variavel -> aparece o dialogo de confirmacao
                         aoAbrir = { aConfirmar = dispositivo },
                     )
                 }
@@ -76,8 +90,10 @@ fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel:
         }
     }
 
+    // Dialogo: so e desenhado se a variavel tiver valor (?.let = 'se nao for null, faz isto com o valor')
     aConfirmar?.let { dispositivo ->
         AlertDialog(
+            // Tocar fora do dialogo ou no botao 'voltar' do telemovel
             onDismissRequest = { aConfirmar = null },
             icon = { Icon(Icons.Default.Lock, contentDescription = null) },
             title = { Text("Abrir ${dispositivo.nome}?") },
@@ -88,12 +104,16 @@ fun PainelScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel:
                         "(docente, funcionario ou administrador)."
                 )
             },
+            // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
             confirmButton = {
                 TextButton(onClick = {
+                    // Chama a acao no ViewModel (que faz o pedido a API)
                     viewModel.abrirPorta(dispositivo)
+                    // Fecha o dialogo
                     aConfirmar = null
                 }) { Text("Abrir") }
             },
+            // Botao Cancelar: so fecha o dialogo
             dismissButton = {
                 TextButton(onClick = { aConfirmar = null }) { Text("Cancelar") }
             },
@@ -139,6 +159,7 @@ private fun CartaoDispositivo(
     aAbrir: Boolean,
     aoAbrir: () -> Unit,
 ) {
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
     CartaoLista {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -161,6 +182,7 @@ private fun CartaoDispositivo(
         }
 
         // Aula a decorrer: quem a abriu, ha quanto tempo e quantos entraram/sairam
+        // So mostra este bloco se houver uma aula a decorrer
         dispositivo.aula?.let { aula ->
             Spacer(Modifier.height(12.dp))
             Surface(color = c.secondaryContainer.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
@@ -185,6 +207,7 @@ private fun CartaoDispositivo(
         }
 
         HorizontalDivider(Modifier.padding(vertical = 12.dp), color = c.outlineVariant)
+        // Ultimo acesso a esta porta (null se nunca houve nenhum)
         val ultimo = dispositivo.ultimoAcesso
         if (ultimo == null) {
             Text("Ainda sem acessos", style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
@@ -214,6 +237,7 @@ private fun CartaoDispositivo(
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = aoAbrir,
+                // Desativado durante outra abertura, com a porta offline ou com a porta ja aberta
                 enabled = !aAbrir && dispositivo.online && !dispositivo.portaAberta,
                 modifier = Modifier.fillMaxWidth(),
             ) {

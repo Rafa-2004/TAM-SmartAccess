@@ -47,10 +47,13 @@ sealed interface Carregamento<out T> {
 // Faz o pedido e guarda o resultado no estado do ecra.
 suspend fun <T> MutableStateFlow<Carregamento<T>>.carregarDe(pedido: suspend () -> T) {
     try {
+        // Correu bem: guarda os dados
         value = Carregamento.Sucesso(pedido())
+    // Cancelamento da coroutine (ex.: ecra fechado): deixa passar, nao e um erro para mostrar
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
+        // Falhou: so mostra o erro se ainda nao havia dados no ecra
         if (value !is Carregamento.Sucesso) value = Carregamento.Erro(e.mensagemErro())
     }
 }
@@ -66,6 +69,7 @@ abstract class BaseViewModel : ViewModel() {
 
     // Volta a pedir os dados (botao 'Tentar de novo', mudanca de filtros)
     fun recarregar() {
+        // Coroutine: corre em segundo plano sem congelar o ecra; e cancelada se o ViewModel for destruido
         viewModelScope.launch { atualizar() }
     }
 
@@ -77,14 +81,20 @@ abstract class BaseViewModel : ViewModel() {
     // Corre uma acao (aprovar, apagar...) numa coroutine:
     // se correr bem mostra 'sucesso' e recarrega os dados; se falhar mostra o erro.
     protected fun executar(sucesso: String, acao: suspend () -> Unit) {
+        // Coroutine: corre em segundo plano sem congelar o ecra; e cancelada se o ViewModel for destruido
         viewModelScope.launch {
             try {
+                // Executa a funcao recebida como parametro (ex.: o pedido a API)
                 acao()
+                // Mensagem de sucesso na barra de baixo
                 mostrarMensagem(sucesso)
+                // Volta a carregar os dados para o ecra mostrar a alteracao
                 atualizar()
+            // Cancelamento da coroutine (ex.: ecra fechado): deixa passar, nao e um erro para mostrar
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // Correu mal: mostra o erro
                 mostrarMensagem(e.mensagemErro())
             }
         }
@@ -94,6 +104,7 @@ abstract class BaseViewModel : ViewModel() {
 // Mostra no Snackbar cada mensagem que o ViewModel enviar
 @Composable
 fun MostrarMensagens(viewModel: BaseViewModel, snackbar: SnackbarHostState) {
+    // Corre enquanto o ecra existir: recebe cada mensagem e mostra-a
     LaunchedEffect(viewModel) {
         viewModel.mensagens.collect { snackbar.showSnackbar(it) }
     }
@@ -104,8 +115,11 @@ fun MostrarMensagens(viewModel: BaseViewModel, snackbar: SnackbarHostState) {
 fun AtualizarPeriodicamente(intervaloMs: Long, acao: suspend () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
+        // So corre enquanto a app esta visivel: para em segundo plano e recomeca ao voltar
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // Repete para sempre: faz a acao, espera, faz de novo...
             while (true) {
+                // Executa a funcao recebida como parametro (ex.: o pedido a API)
                 acao()
                 delay(intervaloMs)
             }
@@ -120,6 +134,7 @@ fun <T> ConteudoCarregado(
     aoTentarDeNovo: () -> Unit,
     conteudo: @Composable (T) -> Unit,
 ) {
+    // Desenha conforme o estado
     when (estado) {
         Carregamento.ACarregar -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -153,7 +168,9 @@ private val FORMATO_DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
 // Data ISO 8601 da API -> "dd/MM/yyyy HH:mm" no fuso do telemovel (se falhar, devolve o texto original)
 fun formatarData(iso: String): String =
+    // runCatching: se der erro (ex.: data invalida), usa o valor do getOrDefault em vez de rebentar
     runCatching {
+        // Le a data ISO e converte-a para o fuso do telemovel
         OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(FORMATO_DATA)
     }.getOrDefault(iso)
 
@@ -204,6 +221,7 @@ fun textoMotivoFim(motivo: String?): String = when (motivo) {
 
 // Minutos entre duas datas ISO 8601 (fim a null = agora), ex.: "1 h 05 min"
 fun duracao(inicio: String, fim: String?): String =
+    // runCatching: se der erro (ex.: data invalida), usa o valor do getOrDefault em vez de rebentar
     runCatching {
         val de = OffsetDateTime.parse(inicio)
         val ate = fim?.let { OffsetDateTime.parse(it) } ?: OffsetDateTime.now()

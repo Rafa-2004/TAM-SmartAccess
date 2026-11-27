@@ -142,25 +142,32 @@ interface SmartAccessApi {
         // Cliente criado so na primeira utilizacao (by lazy) e reutilizado sempre
         // (o OkHttp reaproveita as ligacoes HTTPS entre pedidos).
         val instancia: SmartAccessApi by lazy {
+            // Cliente HTTP (OkHttp): faz os pedidos e reaproveita as ligacoes
             val cliente = OkHttpClient.Builder()
                 // Interceptor: corre em todos os pedidos. Junta o cabecalho Authorization com o token e,
                 // se a API responder 401 a um pedido que levava token, termina a sessao (aoExpirarSessao).
                 .addInterceptor { cadeia ->
+                    // Token no momento deste pedido
                     val atual = token
+                    // Copia o pedido original e junta-lhe o cabecalho com o token
                     val pedido = cadeia.request().newBuilder().apply {
                         if (atual != null) header("Authorization", "Bearer $atual")
                     }.build()
+                    // Envia o pedido e espera pela resposta
                     val resposta = cadeia.proceed(pedido)
+                    // 401 com token = sessao expirada -> logout (?.invoke() so chama se a funcao estiver definida)
                     if (resposta.code == 401 && atual != null) aoExpirarSessao?.invoke()
                     resposta
                 }
                 .build()
 
+            // Monta o Retrofit: endereco base, cliente HTTP e conversor JSON (Gson)
             Retrofit.Builder()
                 .baseUrl(BuildConfig.API_URL)
                 .client(cliente)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
+                // Gera a implementacao da interface: cada funcao passa a fazer o seu pedido HTTP
                 .create(SmartAccessApi::class.java)
         }
     }
@@ -168,10 +175,13 @@ interface SmartAccessApi {
 
 // Mensagem legivel a partir de um erro da API ({"detail": "..."}) ou de rede
 fun Throwable.mensagemErro(): String = when (this) {
+    // A API respondeu com erro (4xx/5xx): le o campo 'detail' do JSON
     is HttpException -> runCatching {
         val detalhe = JsonParser.parseString(response()?.errorBody()?.string()).asJsonObject.get("detail")
         if (detalhe.isJsonPrimitive) detalhe.asString else "Dados invalidos"
     }.getOrDefault("Erro ${code()}")
+    // Sem rede, ou o servidor nao respondeu a tempo
     is IOException -> "Sem ligacao ao servidor"
+    // Qualquer outro erro
     else -> message ?: "Erro desconhecido"
 }

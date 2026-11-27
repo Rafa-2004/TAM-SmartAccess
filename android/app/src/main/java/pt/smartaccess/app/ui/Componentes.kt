@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 // Cores de cada perfil (fundo, texto), usadas nos avatares e nas etiquetas
 @Composable
 fun coresPerfil(perfil: String?): Pair<Color, Color> {
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
     return when (perfil) {
         "admin" -> c.primaryContainer to c.onPrimaryContainer

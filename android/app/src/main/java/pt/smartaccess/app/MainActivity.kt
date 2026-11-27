@@ -14,10 +14,14 @@ class MainActivity : ComponentActivity() {
     // enableEdgeToEdge(): a app desenha tambem por baixo da barra de estado e da barra de navegacao.
     // setContent { ... }: em vez de layouts XML, mostra a interface Compose AppSmartAccess() com o tema da app.
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Obrigatorio: deixa o Android fazer a sua parte da criacao da Activity
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // A partir daqui o ecra e controlado pelo Compose: o que esta dentro das chavetas e desenhado
         setContent {
+            // Aplica as cores e formas da app (ui/Tema.kt) a tudo o que esta dentro
             TemaSmartAccess {
+                // A interface da app (ui/AppSmartAccess.kt)
                 AppSmartAccess()
             }
         }

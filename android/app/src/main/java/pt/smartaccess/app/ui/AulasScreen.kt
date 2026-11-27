@@ -32,11 +32,17 @@ import pt.smartaccess.app.data.Utilizador
 // Lista das aulas, atualizada a cada 10 s
 @Composable
 fun AulasScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: AulasViewModel) {
+    // Le o estado do ViewModel (a carregar / erro / dados). Quando muda, o ecra e redesenhado sozinho.
+    // 'by' permite usar 'estado' diretamente, em vez de 'estado.value'.
     val estado by viewModel.estado.collectAsStateWithLifecycle()
 
+    // Mostra na barra de baixo (Snackbar) as mensagens do ViewModel (ex.: 'Cartao apagado' ou um erro)
     MostrarMensagens(viewModel, snackbar)
+    // Volta a pedir os dados a API de X em X milissegundos, so enquanto o ecra esta visivel
     AtualizarPeriodicamente(10_000) { viewModel.atualizar() }
 
+    // Mostra a roda, o erro ou os dados. viewModel::recarregar = funcao do botao 'Tentar de novo'.
+    // O bloco { ... -> } so corre quando ja ha dados; o nome antes da seta sao os dados recebidos da API.
     ConteudoCarregado(estado, viewModel::recarregar) { aulas ->
         if (aulas.isEmpty()) {
             EstadoVazio(
@@ -44,11 +50,13 @@ fun AulasScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: 
                 if (utilizador.admin) "Uma aula comeca quando alguem passa o cartao numa porta fechada." else null,
             )
         } else {
+            // Lista com scroll: so desenha os elementos visiveis no ecra (rapido mesmo com listas grandes)
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Um elemento por item; key = id para o Compose saber qual e qual quando a lista muda
                 items(aulas, key = { it.id }) { aula -> CartaoAula(aula) }
             }
         }
@@ -58,7 +66,9 @@ fun AulasScreen(utilizador: Utilizador, snackbar: SnackbarHostState, viewModel: 
 // Cartao de uma aula: dono, porta, inicio/fim, entradas/saidas e como fechou
 @Composable
 private fun CartaoAula(aula: Aula) {
+    // Atalho para as cores do tema (c.primary, c.error...)
     val c = MaterialTheme.colorScheme
+    // Cartao branco de lista (Componentes.kt); 'destaque' pinta o fundo (ex.: ambar para os pendentes)
     CartaoLista(destaque = if (aula.aDecorrer) c.secondaryContainer.copy(alpha = 0.55f) else null) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {

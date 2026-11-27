@@ -55,10 +55,12 @@ sealed interface EscolhaPessoa {
 
 // Cria a pessoa (se for nova) e associa-lhe o cartao: aprova o pendente ou adiciona-o pelo UID
 suspend fun associarCartao(api: SmartAccessApi, uid: String, escolha: EscolhaPessoa, cartaoPendenteId: Long?) {
+    // Pessoa que ja existe, ou criada agora (POST /api/users)
     val pessoa = when (escolha) {
         is EscolhaPessoa.Existente -> escolha.pessoa
         is EscolhaPessoa.Nova -> api.criarUtilizador(NovoUtilizador(escolha.nome, escolha.perfil))
     }
+    // Cartao lido numa porta (pendente): aprova-o (PATCH). Senao: cria-o pelo UID (POST)
     if (cartaoPendenteId != null) {
         api.alterarCartao(cartaoPendenteId, AlteracaoCartao(estado = "ativo", utilizadorId = pessoa.id))
     } else {
@@ -84,11 +86,14 @@ fun DialogoAssociarCartao(
     // O campo guarda o que foi escrito; o UID normalizado ("8d f3 6e 69" -> "8DF36E69") e calculado a parte.
     // Mudar o texto dentro do onValueChange baralha o teclado e faz perder teclas.
     var uidEscrito by remember { mutableStateOf(uidFixo.orEmpty()) }
+    // UID normalizado: maiusculas, sem espacos, ':' nem '-'
     val uid = uidEscrito.uppercase().filter { !it.isWhitespace() && it != ':' && it != '-' }
     var escolha by remember { mutableStateOf<EscolhaPessoa?>(pessoaInicial?.let { EscolhaPessoa.Existente(it) }) }
+    // true se tiver 8 a 20 caracteres hexadecimais
     val uidValido = FORMATO_UID.matches(uid)
 
     AlertDialog(
+        // Tocar fora do dialogo ou no botao 'voltar' do telemovel
         onDismissRequest = aoFechar,
         title = { Text(titulo) },
         text = {
@@ -129,12 +134,15 @@ fun DialogoAssociarCartao(
                 SeletorPessoa(pessoas, escolha) { escolha = it }
             }
         },
+        // Botao de confirmar: e aqui que a acao e feita (chama o ViewModel) e o dialogo fecha
         confirmButton = {
             TextButton(
                 onClick = { escolha?.let { aoConfirmar(uid, it) } },
+                // So deixa associar com um UID valido e uma pessoa escolhida
                 enabled = uidValido && escolha != null,
             ) { Text("Associar") }
         },
+        // Botao Cancelar: so fecha o dialogo
         dismissButton = { TextButton(onClick = aoFechar) { Text("Cancelar") } },
     )
 }
@@ -150,7 +158,9 @@ private fun SeletorPessoa(pessoas: List<Utilizador>, escolha: EscolhaPessoa?, ao
     }
 
     var pesquisa by remember { mutableStateOf("") }
+    // Pessoas cujo nome contem o texto pesquisado
     val encontradas = pessoas.filter { contem(it.nome, pesquisa) }
+    // Ja existe alguem com este nome exato? (entao nao oferece criar)
     val nomeExato = pessoas.any { it.nome.trim().equals(pesquisa.trim(), ignoreCase = true) }
 
     CampoPesquisa(pesquisa, { pesquisa = it }, "Pesquisar pelo nome")
